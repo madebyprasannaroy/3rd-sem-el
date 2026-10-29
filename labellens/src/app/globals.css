@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand-green: #1d6b4a;
+  --brand-green-hover: #17563b;
+  --brand-amber: #d97706;
+  --brand-rose: #e11d48;
+  --bg-primary: #f8fafc;
+  --card-bg: #ffffff;
+  --border-color: #e2e8f0;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased selection:bg-brand-100 selection:text-brand-900;
+    min-height: 100dvh;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+/* Custom interactive bounding box highlight pulses */
+@keyframes bbox-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 2px rgba(29, 107, 74, 0.8), 0 0 16px rgba(29, 107, 74, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(29, 107, 74, 1), 0 0 24px rgba(29, 107, 74, 0.5);
+  }
+}
+
+.bbox-active {
+  animation: bbox-pulse 2s infinite ease-in-out;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 rounded-full hover:bg-slate-400;
+}

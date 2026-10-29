@@ -1,0 +1,16 @@
+{
+  "name": "LabelLens India",
+  "short_name": "LabelLens",
+  "description": "AI Food Label Intelligence & Legal Compliance Platform (India Edition)",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1d6b4a",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

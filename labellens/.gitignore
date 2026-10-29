@@ -1,0 +1,8 @@
+# Files that must never be committed: dependencies, build output, local secrets, test artifacts.
+node_modules
+.next
+.env
+.env.local
+*.tsbuildinfo
+test-results
+playwright-report
