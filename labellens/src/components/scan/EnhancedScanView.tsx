@@ -35,6 +35,7 @@ export interface Photo {
 
 interface EnhancedScanViewProps {
   scanId: string;
+  initialTitle?: string | null;
   initialStatus: string;
   initialFields: Field[];
   photos: Photo[];
@@ -55,11 +56,13 @@ const DEFAULT_BBOX_MAP: Record<string, { x: number; y: number; w: number; h: num
 
 export default function EnhancedScanView({
   scanId,
+  initialTitle,
   initialStatus,
   initialFields,
   photos,
   canEdit,
 }: EnhancedScanViewProps) {
+  const [title, setTitle] = useState(initialTitle || "Scanned Food Package");
   const [status, setStatus] = useState(initialStatus);
   const [fields, setFields] = useState<Field[]>(initialFields);
   const [photosList, setPhotosList] = useState<Photo[]>(photos);
@@ -77,6 +80,11 @@ export default function EnhancedScanView({
       const saved = localStorage.getItem(`labellens_scan_${scanId}`);
       if (saved) {
         const parsed = JSON.parse(saved);
+        if (parsed.title) {
+          setTitle(parsed.title);
+        } else if (parsed.extraction?.product_summary?.product_name) {
+          setTitle(parsed.extraction.product_summary.product_name);
+        }
         if (parsed.photos && Array.isArray(parsed.photos) && parsed.photos.length > 0) {
           const loadedPhotos: Photo[] = parsed.photos.map((p: any, idx: number) => ({
             id: `local-p-${idx}`,
@@ -181,6 +189,25 @@ export default function EnhancedScanView({
 
   return (
     <div className="space-y-6">
+      {/* Dynamic Scan Title Banner */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-brand-700 flex items-center gap-1">
+            <Sparkles className="w-3.5 h-3.5" />
+            Verified Extraction Dossier
+          </span>
+          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-0.5">
+            {title}
+          </h1>
+        </div>
+        <div className="text-xs text-slate-500">
+          Ownership:{" "}
+          <span className="font-semibold text-slate-800">
+            {canEdit ? "You (Owner / Editor)" : "Inspector (Auditor)"}
+          </span>
+        </div>
+      </div>
+
       {/* Scan Header Bar */}
       <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
         <div>

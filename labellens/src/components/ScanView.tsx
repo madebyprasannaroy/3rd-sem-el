@@ -6,6 +6,7 @@ export type { Field, Photo };
 
 export default function ScanView(props: {
   scanId: string;
+  initialTitle?: string | null;
   initialStatus: string;
   initialFields: Field[];
   photos: Photo[];

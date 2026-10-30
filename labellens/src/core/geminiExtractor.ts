@@ -155,9 +155,9 @@ export async function extractWithGemini(
   images: ImageInput[],
   titleHint?: string
 ): Promise<{ result: ExtractionResponse; isFallback: boolean; reason?: string }> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || " ";
 
-  if (!apiKey || apiKey === "your-gemini-api-key" || apiKey.trim() === "") {
+  if (!apiKey || apiKey.trim() === "") {
     return {
       result: getIntelligentFallback(titleHint),
       isFallback: true,

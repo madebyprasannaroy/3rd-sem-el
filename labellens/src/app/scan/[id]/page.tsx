@@ -62,7 +62,7 @@ export default async function ScanPage({ params }: { params: { id: string } }) {
       id: params.id,
       title: params.id.includes("draft")
         ? "Choco Crunch Bar 50g Pre-Print Proof"
-        : "Sample Pack: NutriChoice Digestive Cookies",
+        : "Scanned Food Package",
       status: "needs_review",
       owner_id: session.userId,
     };
@@ -159,28 +159,10 @@ export default async function ScanPage({ params }: { params: { id: string } }) {
           </div>
         </div>
 
-        {/* Scan Title Banner */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-brand-700 flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5" />
-              Verified Extraction Dossier
-            </span>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-0.5">
-              {scan.title ?? "Untitled Food Package"}
-            </h1>
-          </div>
-          <div className="text-xs text-slate-500">
-            Ownership:{" "}
-            <span className="font-semibold text-slate-800">
-              {canEdit ? "You (Owner / Editor)" : "Inspector (Auditor)"}
-            </span>
-          </div>
-        </div>
-
         {/* Interactive Bounding Box & Extraction Review Component */}
         <ScanView
           scanId={scan.id}
+          initialTitle={scan.title}
           initialStatus={scan.status}
           initialFields={fields}
           photos={photos}
