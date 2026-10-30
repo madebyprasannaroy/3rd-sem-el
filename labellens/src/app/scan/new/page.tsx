@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Camera, Upload, ArrowLeft, CheckCircle2, AlertCircle, Sparkles, Image as ImageIcon, Trash2 } from "lucide-react";
+import { Camera, Upload, ArrowLeft, CheckCircle2, AlertCircle, Sparkles, Trash2, Layers, Scan } from "lucide-react";
 import Navbar from "@/components/ui/Navbar";
 
 const PANELS = [
@@ -32,12 +32,29 @@ const PANELS = [
   },
 ] as const;
 
+/** Convert a File to base64 string */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove data URL prefix: "data:image/jpeg;base64,..."
+      const base64 = result.split(",")[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function NewScan() {
+  const [mode, setMode] = useState<"quick" | "multi">("multi");
   const [title, setTitle] = useState("");
   const [scanType, setScanType] = useState<"product" | "draft_label">("product");
   const [files, setFiles] = useState<Record<string, File | undefined>>({});
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [scanStage, setScanStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function handleFileSelect(key: string, file: File | undefined) {
@@ -63,47 +80,137 @@ export default function NewScan() {
     });
   }
 
-  // Runs the upload pipeline
   async function submit() {
     setBusy(true);
     setError(null);
-    try {
-      const created = await fetch("/api/scans", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title.trim() || undefined, scan_type: scanType }),
-      });
+    setScanStage("Preparing images for upload...");
 
-      if (!created.ok) {
-        const errJson = await created.json().catch(() => ({}));
-        throw new Error(errJson.error ?? "Could not initiate scan record");
+    try {
+      // Determine which keys have files
+      const activeKeys = mode === "quick" ? ["full_pack"] : PANELS.map((p) => p.key);
+      const filledEntries: { panel: string; file: File }[] = [];
+      for (const key of activeKeys) {
+        const f = files[key];
+        if (f) filledEntries.push({ panel: key, file: f });
       }
 
-      const { id } = await created.json();
+      if (filledEntries.length === 0) {
+        throw new Error("Please attach at least 1 packaging photo.");
+      }
 
-      // Upload each panel photo
-      for (const p of PANELS) {
-        const f = files[p.key];
-        if (!f) continue;
-        const fd = new FormData();
-        fd.append("file", f);
-        fd.append("panel", p.key);
+      const scanId = `scan-${Date.now()}`;
 
-        const up = await fetch(`/api/scans/${id}/images`, { method: "POST", body: fd });
-        if (!up.ok) {
-          const upJson = await up.json().catch(() => ({}));
-          throw new Error(`${p.label}: ${upJson.error ?? "photo upload failed"}`);
+      // Convert all files to base64
+      setScanStage("Encoding images...");
+      const imagePayloads: { panel: string; base64: string; mimeType: string }[] = [];
+      for (const entry of filledEntries) {
+        const base64 = await fileToBase64(entry.file);
+        imagePayloads.push({
+          panel: entry.panel,
+          base64,
+          mimeType: entry.file.type || "image/jpeg",
+        });
+      }
+
+      // Also save preview URLs to localStorage for the review page
+      const photoData: { panel: string; dataUrl: string }[] = [];
+      for (const entry of filledEntries) {
+        const key = entry.panel;
+        if (previews[key]) {
+          photoData.push({ panel: key, dataUrl: previews[key] });
         }
       }
 
-      // Trigger background extraction job
-      fetch(`/api/scans/${id}/extract`, { method: "POST" });
+      setScanStage("Running Gemini Vision OCR extraction...");
+
+      // Try the direct extraction route first (no Supabase needed)
+      let extractionResult: any = null;
+      let usedDirect = false;
+
+      try {
+        const directRes = await fetch("/api/extract-direct", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            images: imagePayloads,
+            title: title.trim() || undefined,
+          }),
+        });
+
+        if (directRes.ok) {
+          extractionResult = await directRes.json();
+          usedDirect = true;
+        }
+      } catch {
+        // If direct extraction fails, try the Supabase-based flow
+      }
+
+      // If direct extraction didn't work, try the original Supabase flow
+      if (!usedDirect) {
+        setScanStage("Uploading to scan database...");
+        try {
+          const created = await fetch("/api/scans", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title: title.trim() || undefined, scan_type: scanType }),
+          });
+
+          if (created.ok) {
+            const { id } = await created.json();
+
+            // Upload images to Supabase storage
+            for (const entry of filledEntries) {
+              const fd = new FormData();
+              fd.append("file", entry.file);
+              fd.append("panel", entry.panel);
+              await fetch(`/api/scans/${id}/images`, { method: "POST", body: fd }).catch(() => {});
+            }
+
+            setScanStage("Running extraction pipeline...");
+            fetch(`/api/scans/${id}/extract`, { method: "POST" }).catch(() => {});
+            await new Promise((r) => setTimeout(r, 700));
+            window.location.href = `/scan/${id}`;
+            return;
+          }
+        } catch {
+          // Fall through to fallback
+        }
+      }
+
+      setScanStage("Preparing scan review...");
+
+      // Store extraction results + photo previews in localStorage for the review page
+      const scanData = {
+        id: scanId,
+        title: title.trim() || "Untitled Food Package",
+        scanType,
+        status: "needs_review",
+        createdAt: new Date().toISOString(),
+        extraction: extractionResult,
+        photos: photoData,
+      };
+
+      localStorage.setItem(`labellens_scan_${scanId}`, JSON.stringify(scanData));
+
+      // Also store in a scan list for the dashboard
+      const scanList = JSON.parse(localStorage.getItem("labellens_scan_list") || "[]");
+      scanList.unshift({
+        id: scanId,
+        title: scanData.title,
+        status: "needs_review",
+        createdAt: scanData.createdAt,
+        panelCount: filledEntries.length,
+      });
+      localStorage.setItem("labellens_scan_list", JSON.stringify(scanList));
+
+      await new Promise((r) => setTimeout(r, 400));
 
       // Navigate to scan review screen
-      window.location.href = `/scan/${id}`;
+      window.location.href = `/scan/${scanId}`;
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
+      setScanStage(null);
     }
   }
 
@@ -130,12 +237,41 @@ export default function NewScan() {
           <div className="p-6 bg-slate-900 text-white border-b border-slate-800">
             <div className="flex items-center gap-2 text-xs font-medium text-emerald-400 mb-1">
               <Sparkles className="w-4 h-4" />
-              <span>Multi-Panel Packaging Capture</span>
+              <span>Unified Gemini Vision Packaging Extraction</span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold">Capture Package for Compliance Scan</h1>
             <p className="text-xs sm:text-sm text-slate-300 mt-1">
               For highest extraction accuracy under Legal Metrology & FSSAI standards, snap clear flat photos of the 4 panels.
             </p>
+
+            {/* Mode Switcher Tabs */}
+            <div className="mt-5 flex gap-2 border-b border-slate-800 pb-1">
+              <button
+                type="button"
+                onClick={() => setMode("quick")}
+                className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
+                  mode === "quick"
+                    ? "bg-brand-700 text-white shadow-md ring-1 ring-brand-500"
+                    : "bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                <Scan className="w-4 h-4 text-emerald-400" />
+                <span>Quick Single Photo</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMode("multi")}
+                className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
+                  mode === "multi"
+                    ? "bg-brand-700 text-white shadow-md ring-1 ring-brand-500"
+                    : "bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                <Layers className="w-4 h-4 text-blue-400" />
+                <span>Multi-Panel (4 Panels)</span>
+              </button>
+            </div>
           </div>
 
           <div className="p-6 space-y-6">
@@ -149,7 +285,7 @@ export default function NewScan() {
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Digestive High Fibre Biscuits 100g"
+                  placeholder="e.g. Lay's India's Magic Masala or Digestive Biscuits"
                   maxLength={120}
                   className="w-full text-sm border border-slate-300 rounded-lg p-2.5 bg-slate-50 focus:ring-2 focus:ring-brand-600 focus:bg-white focus:outline-none"
                 />
@@ -170,81 +306,136 @@ export default function NewScan() {
               </div>
             </div>
 
-            {/* Panel Capture Cards */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-2">
-                Package Panels (Select at least 1 panel to proceed)
-              </label>
+            {/* Quick Single Photo Mode */}
+            {mode === "quick" && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">Take or Upload Full Pack Photo</h3>
+                    <p className="text-xs text-slate-500">
+                      Gemini Vision automatically reads front identity, ingredients, nutrition table, and declarations from a single image.
+                    </p>
+                  </div>
+                  {files["full_pack"] && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full shrink-0">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Image Attached
+                    </span>
+                  )}
+                </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {PANELS.map((p) => {
-                  const hasFile = !!files[p.key];
-                  const preview = previews[p.key];
-
-                  return (
-                    <div
-                      key={p.key}
-                      className={`p-4 rounded-xl border-2 transition-all ${
-                        hasFile
-                          ? "border-emerald-500 bg-emerald-50/30"
-                          : "border-dashed border-slate-300 hover:border-slate-400 bg-slate-50/50"
-                      }`}
+                {previews["full_pack"] ? (
+                  <div className="relative aspect-[16/9] w-full rounded-2xl overflow-hidden bg-slate-900 border border-slate-200 shadow-inner max-h-[380px]">
+                    <img src={previews["full_pack"]} alt="Pack photo" className="w-full h-full object-contain" />
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveFile("full_pack")}
+                      className="absolute top-3 right-3 p-2 bg-slate-900/80 hover:bg-rose-600 text-white rounded-xl transition-colors shadow-lg"
+                      title="Remove photo"
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xl">{p.icon}</span>
-                          <div>
-                            <h3 className="text-sm font-bold text-slate-900">{p.label}</h3>
-                            <p className="text-[11px] text-slate-500 leading-tight mt-0.5">{p.desc}</p>
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center p-8 sm:p-12 border-2 border-dashed border-slate-300 hover:border-brand-500 rounded-2xl cursor-pointer bg-slate-50/50 hover:bg-brand-50/30 transition-all group">
+                    <div className="w-14 h-14 rounded-2xl bg-white shadow-sm border border-slate-200 flex items-center justify-center text-slate-500 group-hover:text-brand-700 group-hover:border-brand-400 group-hover:scale-105 transition-all mb-3">
+                      <Camera className="w-7 h-7" />
+                    </div>
+                    <span className="text-sm font-bold text-slate-800 group-hover:text-brand-900">
+                      Tap to Take Photo or Browse Pack Image
+                    </span>
+                    <span className="text-xs text-slate-500 mt-1 text-center max-w-sm">
+                      Rear camera on mobile • JPG, PNG, WebP up to 8MB. Even a single front or back photo will extract visible fields!
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(e) => handleFileSelect("full_pack", e.target.files?.[0])}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
+            )}
+
+            {/* Multi-Panel Capture Cards Mode */}
+            {mode === "multi" && (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-2">
+                  Package Panels (Select at least 1 panel to proceed)
+                </label>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {PANELS.map((p) => {
+                    const hasFile = !!files[p.key];
+                    const preview = previews[p.key];
+
+                    return (
+                      <div
+                        key={p.key}
+                        className={`p-4 rounded-xl border-2 transition-all ${
+                          hasFile
+                            ? "border-emerald-500 bg-emerald-50/30"
+                            : "border-dashed border-slate-300 hover:border-slate-400 bg-slate-50/50"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl">{p.icon}</span>
+                            <div>
+                              <h3 className="text-sm font-bold text-slate-900">{p.label}</h3>
+                              <p className="text-[11px] text-slate-500 leading-tight mt-0.5">{p.desc}</p>
+                            </div>
                           </div>
+
+                          {hasFile && (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full shrink-0">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Ready
+                            </span>
+                          )}
                         </div>
 
-                        {hasFile && (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full shrink-0">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            Ready
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Preview or Upload control */}
-                      <div className="mt-3">
-                        {preview ? (
-                          <div className="relative aspect-[16/9] w-full rounded-lg overflow-hidden bg-slate-900 border border-slate-200">
-                            <img src={preview} alt={p.label} className="w-full h-full object-cover" />
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveFile(p.key)}
-                              className="absolute top-2 right-2 p-1.5 bg-slate-900/80 hover:bg-rose-600 text-white rounded-lg transition-colors shadow"
-                              title="Remove photo"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ) : (
-                          <label className="flex flex-col items-center justify-center p-4 border border-dashed border-slate-300 hover:border-brand-500 rounded-lg cursor-pointer bg-white transition-all group">
-                            <div className="flex items-center gap-2 text-slate-500 group-hover:text-brand-700">
-                              <Camera className="w-5 h-5" />
-                              <span className="text-xs font-semibold">Tap to Take Photo or Browse</span>
+                        {/* Preview or Upload control */}
+                        <div className="mt-3">
+                          {preview ? (
+                            <div className="relative aspect-[16/9] w-full rounded-lg overflow-hidden bg-slate-900 border border-slate-200">
+                              <img src={preview} alt={p.label} className="w-full h-full object-cover" />
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveFile(p.key)}
+                                className="absolute top-2 right-2 p-1.5 bg-slate-900/80 hover:bg-rose-600 text-white rounded-lg transition-colors shadow"
+                                title="Remove photo"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
-                            <span className="text-[10px] text-slate-400 mt-1">
-                              Rear camera on phones • JPG, PNG, WebP up to 10MB
-                            </span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              capture="environment"
-                              onChange={(e) => handleFileSelect(p.key, e.target.files?.[0])}
-                              className="hidden"
-                            />
-                          </label>
-                        )}
+                          ) : (
+                            <label className="flex flex-col items-center justify-center p-4 border border-dashed border-slate-300 hover:border-brand-500 rounded-lg cursor-pointer bg-white transition-all group">
+                              <div className="flex items-center gap-2 text-slate-500 group-hover:text-brand-700">
+                                <Camera className="w-5 h-5" />
+                                <span className="text-xs font-semibold">Tap to Take Photo or Browse</span>
+                              </div>
+                              <span className="text-[10px] text-slate-400 mt-1">
+                                Rear camera on phones • JPG, PNG, WebP up to 10MB
+                              </span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                onChange={(e) => handleFileSelect(p.key, e.target.files?.[0])}
+                                className="hidden"
+                              />
+                            </label>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
 
             {error && (
               <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
@@ -253,11 +444,19 @@ export default function NewScan() {
               </div>
             )}
 
+            {/* Scan Progress Stage Indicator */}
+            {busy && scanStage && (
+              <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs flex items-center gap-2">
+                <span className="w-4 h-4 border-2 border-blue-300 border-t-blue-700 rounded-full animate-spin shrink-0" />
+                <span className="font-medium">{scanStage}</span>
+              </div>
+            )}
+
             {/* Action Bar */}
             <div className="pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
               <span className="text-xs text-slate-500">
                 {selectedCount === 0
-                  ? "Select at least 1 photo panel to upload"
+                  ? "Attach at least 1 packaging photo to scan"
                   : `${selectedCount} panel photo${selectedCount > 1 ? "s" : ""} selected for OCR extraction`}
               </span>
 
@@ -270,7 +469,7 @@ export default function NewScan() {
                 {busy ? (
                   <>
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Uploading & Starting OCR…</span>
+                    <span>{scanStage || "Processing..."}</span>
                   </>
                 ) : (
                   <>

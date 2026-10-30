@@ -62,12 +62,53 @@ export default function EnhancedScanView({
 }: EnhancedScanViewProps) {
   const [status, setStatus] = useState(initialStatus);
   const [fields, setFields] = useState<Field[]>(initialFields);
+  const [photosList, setPhotosList] = useState<Photo[]>(photos);
   const [activePanelIndex, setActivePanelIndex] = useState(0);
   const [highlightedFieldKey, setHighlightedFieldKey] = useState<string | null>(null);
   const [editingFieldId, setEditingFieldId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<string>("");
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [activeTabMobile, setActiveTabMobile] = useState<"fields" | "canvas">("fields");
+
+  // Hydrate from localStorage for instant demo / client-side extractions
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const saved = localStorage.getItem(`labellens_scan_${scanId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.photos && Array.isArray(parsed.photos) && parsed.photos.length > 0) {
+          const loadedPhotos: Photo[] = parsed.photos.map((p: any, idx: number) => ({
+            id: `local-p-${idx}`,
+            panel: p.panel,
+            url: p.dataUrl,
+          }));
+          setPhotosList(loadedPhotos);
+        }
+        if (parsed.extraction?.fields && Array.isArray(parsed.extraction.fields) && parsed.extraction.fields.length > 0) {
+          const loadedFields: Field[] = parsed.extraction.fields.map((f: any, idx: number) => ({
+            id: `f-${idx + 1}`,
+            key: f.key,
+            value: f.value,
+            unit: f.unit || null,
+            confidence: f.confidence,
+            status: f.status,
+            bbox: f.bounding_box
+              ? {
+                  x: Math.round(f.bounding_box[1] / 10),
+                  y: Math.round(f.bounding_box[0] / 10),
+                  w: Math.round((f.bounding_box[3] - f.bounding_box[1]) / 10),
+                  h: Math.round((f.bounding_box[2] - f.bounding_box[0]) / 10),
+                }
+              : undefined,
+          }));
+          setFields(loadedFields);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to load local scan storage:", e);
+    }
+  }, [scanId]);
 
   // Subscribe to live updates via Supabase Realtime
   useEffect(() => {
@@ -130,7 +171,7 @@ export default function EnhancedScanView({
   }
 
   // Active photo
-  const currentPhoto = photos[activePanelIndex] || photos[0];
+  const currentPhoto = photosList[activePanelIndex] || photosList[0];
 
   // Helper values for nutrition
   const sugarField = fields.find((f) => f.key.includes("sugar"))?.value;
@@ -292,9 +333,9 @@ export default function EnhancedScanView({
             </div>
 
             {/* Thumbnail Switcher for Multiple Panels */}
-            {photos.length > 1 && (
+            {photosList.length > 1 && (
               <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-                {photos.map((p, idx) => (
+                {photosList.map((p, idx) => (
                   <button
                     key={p.id}
                     onClick={() => setActivePanelIndex(idx)}

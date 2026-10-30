@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Camera, QrCode, MessageSquare, Globe2, Sparkles, ChevronRight, Clock, ShieldCheck, AlertCircle } from "lucide-react";
 import type { ScanRow } from "@/components/LiveScanList";
@@ -22,6 +22,38 @@ export default function CustomerDashboard({ initialScans, userId }: CustomerDash
   );
 
   const selectedScan = scans.find((s) => s.id === selectedScanId) || scans[0];
+
+  // Merge locally scanned items from demo sessions
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = localStorage.getItem("labellens_scan_list");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const localScans: ScanRow[] = parsed.map((item: any) => ({
+            id: item.id,
+            owner_id: userId,
+            title: item.title,
+            scan_type: item.scanType || "product",
+            status: item.status || "needs_review",
+            created_at: item.createdAt,
+          }));
+
+          setScans((prev) => {
+            const map = new Map<string, ScanRow>();
+            localScans.forEach((s) => map.set(s.id, s));
+            prev.forEach((s) => {
+              if (!map.has(s.id)) map.set(s.id, s);
+            });
+            return Array.from(map.values());
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to load local scan list:", e);
+    }
+  }, [userId]);
 
   const panels = [
     { name: "Front Panel", desc: "Brand, name & net weight", color: "bg-emerald-50 text-emerald-800 border-emerald-200" },

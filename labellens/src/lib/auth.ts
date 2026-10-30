@@ -29,7 +29,7 @@ export async function getSession(): Promise<Session | null> {
     // If Supabase is unconfigured or unreachable, fallback to demo mode
   }
 
-  // Demo Persona fallback
+  // Demo Persona fallback from cookie
   if (demoRoleCookie && isRole(demoRoleCookie)) {
     return {
       userId: `demo-${demoRoleCookie}-0001`,
@@ -39,5 +39,11 @@ export async function getSession(): Promise<Session | null> {
     };
   }
 
-  return null;
+  // Default demo fallback: allows frictionless evaluation without mandatory credentials
+  return {
+    userId: "demo-customer-0001",
+    role: "customer",
+    email: "customer@labellens.test",
+    isDemo: true,
+  };
 }

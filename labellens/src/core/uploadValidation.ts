@@ -1,7 +1,7 @@
 // Upload validation: checks file type, size, and panel name before a photo is accepted (runs on the server).
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024; // 8 MB limit per photo
 export const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp"] as const;
-export const PANELS = ["front", "ingredients", "nutrition", "declaration"] as const;
+export const PANELS = ["front", "ingredients", "nutrition", "declaration", "full_pack"] as const;
 export type Panel = (typeof PANELS)[number];
 
 // Result type: either valid, or invalid with a human-readable reason.

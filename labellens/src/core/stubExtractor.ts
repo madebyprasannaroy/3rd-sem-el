@@ -30,5 +30,12 @@ export function stubExtract(panel: Panel): ExtractedFieldInput[] {
         { key: "net_quantity", value: "100", unit: "g", confidence: 0.85, status: "ok" },
         { key: "mrp", value: null, unit: "INR", confidence: 0, status: "missing" },
       ];
+    case "full_pack":
+      return [
+        { key: "product_name", value: "Sample Product (Full Pack)", unit: null, confidence: 0.95, status: "ok" },
+        { key: "ingredients", value: "Wheat flour, sugar, edible vegetable oil", unit: null, confidence: 0.85, status: "ok" },
+        { key: "sugar_per_100g", value: "22", unit: "g", confidence: 0.9, status: "ok" },
+        { key: "net_quantity", value: "100", unit: "g", confidence: 0.9, status: "ok" },
+      ];
   }
 }

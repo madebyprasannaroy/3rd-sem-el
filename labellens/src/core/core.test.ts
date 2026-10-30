@@ -59,7 +59,7 @@ describe("upload validation", () => {
   });
 });
 
-describe("stub extractor", () => {
+describe("stub and gemini fallback extractor", () => {
   it("never invents missing values: missing fields have null value and zero confidence", () => {
     const f = stubExtract("nutrition").find((x) => x.status === "missing")!;
     expect(f.value).toBeNull();

@@ -43,6 +43,17 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  const isSupabaseConfigured =
+    supabaseUrl &&
+    supabaseKey &&
+    !supabaseUrl.includes("YOUR-PROJECT") &&
+    !supabaseUrl.includes("placeholder");
+
+  // In demo / unconfigured mode without Supabase, allow access to all app routes
+  if (!isSupabaseConfigured) {
+    return res;
+  }
+
   // Allow through if authenticated or in demo role or accessing public/login/api
   if (!hasAuthUser && !hasValidDemoRole && !isLogin && !isApi) {
     return NextResponse.redirect(new URL("/login", req.url));
