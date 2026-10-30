@@ -6,7 +6,7 @@ import { supabaseUser, supabaseAdmin } from "@/lib/supabaseServer";
 import ScanView, { type Field, type Photo } from "@/components/ScanView";
 import DemoRoleSwitcher from "@/components/ui/DemoRoleSwitcher";
 import Navbar from "@/components/ui/Navbar";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -53,85 +53,19 @@ export default async function ScanPage({ params }: { params: { id: string } }) {
       );
     }
   } catch {
-    // If not found in live DB, fallback to demo scan data below
+    // If not found in live DB, scan remains null and will be hydrated from localStorage on client
   }
 
-  // Graceful fallback for demo or sample scan testing
+  // If scan record not in Supabase, pass empty state to let client hydrate from localStorage
   if (!scan) {
     scan = {
       id: params.id,
-      title: params.id.includes("draft")
-        ? "Choco Crunch Bar 50g Pre-Print Proof"
-        : "Scanned Food Package",
+      title: null,
       status: "needs_review",
       owner_id: session.userId,
     };
-
-    fields = [
-      {
-        id: "f-01",
-        key: "product_name",
-        value: "NutriChoice Digestive High Fibre (sample)",
-        unit: null,
-        confidence: 0.96,
-        status: "ok",
-      },
-      {
-        id: "f-02",
-        key: "brand",
-        value: "Britannia Industries Ltd",
-        unit: null,
-        confidence: 0.88,
-        status: "ok",
-      },
-      {
-        id: "f-03",
-        key: "ingredients",
-        value: "Refined Wheat Flour (Maida 55%), Edible Vegetable Oil (Palm), Sugar, Wheat Bran, Invert Sugar Syrup (sample)",
-        unit: null,
-        confidence: 0.72,
-        status: "uncertain",
-      },
-      {
-        id: "f-04",
-        key: "sugar_per_100g",
-        value: "22",
-        unit: "g",
-        confidence: 0.92,
-        status: "ok",
-      },
-      {
-        id: "f-05",
-        key: "sodium_per_100g",
-        value: "280",
-        unit: "mg",
-        confidence: 0.85,
-        status: "ok",
-      },
-      {
-        id: "f-06",
-        key: "net_quantity",
-        value: "100",
-        unit: "g",
-        confidence: 0.9,
-        status: "ok",
-      },
-      {
-        id: "f-07",
-        key: "mrp",
-        value: null,
-        unit: "INR",
-        confidence: 0,
-        status: "missing",
-      },
-    ];
-
-    photos = [
-      { id: "p-01", panel: "front", url: null },
-      { id: "p-02", panel: "ingredients", url: null },
-      { id: "p-03", panel: "nutrition", url: null },
-      { id: "p-04", panel: "declaration", url: null },
-    ];
+    fields = [];
+    photos = [];
   }
 
   const canEdit = scan.owner_id === session.userId || session.isDemo === true;
@@ -159,7 +93,7 @@ export default async function ScanPage({ params }: { params: { id: string } }) {
           </div>
         </div>
 
-        {/* Interactive Bounding Box & Extraction Review Component */}
+        {/* Interactive Extraction Review Component */}
         <ScanView
           scanId={scan.id}
           initialTitle={scan.title}

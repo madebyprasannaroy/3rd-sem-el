@@ -33,160 +33,245 @@ export interface ImageInput {
   assetId?: string;
 }
 
-const SYSTEM_INSTRUCTION = `You are an expert AI Food Packaging Compliance and OCR Specialist specializing in Indian packaged food products under FSSAI regulations and the Legal Metrology (Packaged Commodities) Rules, 2011.
+export interface ExtractionResult {
+  ok: boolean;
+  result: ExtractionResponse;
+  fields: ExtractedFieldResult[];
+  detected_panels: ("front" | "ingredients" | "nutrition" | "declaration")[];
+  product_summary: {
+    product_name: string | null;
+    brand: string | null;
+    category?: string | null;
+    veg_non_veg: "veg" | "non_veg" | "uncertain" | "missing";
+  };
+  error?: string;
+  message?: string;
+}
 
-Analyze the uploaded image(s) of the food packaging. A single image may contain multiple panels (e.g. both ingredients and nutrition, or full flat artwork).
-Inspect ALL readable text, logos, tables, and declarations.
+const SYSTEM_INSTRUCTION = `You are an expert AI Food Packaging OCR Specialist and Compliance Analyst specializing in packaged food products under FSSAI regulations and Legal Metrology rules.
 
-Extract the following key fields if visible:
-1. Product Identity:
-   - "product_name": Full commercial product name.
-   - "brand": Brand or manufacturer trade name.
-   - "veg_non_veg": "veg" if green dot inside green square, "non_veg" if brown triangle inside brown square, else "missing" or "uncertain".
-2. Ingredients & Composition:
-   - "ingredients": Full ingredient list as printed, in sequence.
-   - "allergens": Declared allergen advice (e.g. "Contains Wheat, Milk, Soy").
-   - "palm_oil_present": "true" if any palm oil / palmolein is in the ingredients, else "false".
-3. Nutrition Table (Prefer per 100g or 100ml):
-   - "energy_kcal": Numerical energy in kcal per 100g.
-   - "protein_g": Protein in g per 100g.
-   - "carbohydrates_g": Total carbohydrates in g per 100g.
-   - "total_sugar_g": Total sugars in g per 100g.
-   - "added_sugar_g": Added sugars in g per 100g.
-   - "total_fat_g": Total fat in g per 100g.
-   - "saturated_fat_g": Saturated fat in g per 100g.
-   - "trans_fat_g": Trans fat in g per 100g.
-   - "sodium_mg": Sodium in mg per 100g.
-   - "salt_g": Salt equivalent in g per 100g if declared.
-4. Mandatory Declarations (Legal Metrology & FSSAI):
-   - "net_quantity": Net weight or volume (e.g. "100 g", "500 ml").
-   - "mrp": Maximum retail price including symbol (e.g. "₹50.00" or "Rs 50").
-   - "fssai_license": 14-digit FSSAI license number.
-   - "date_of_manufacture": Date or month/year of manufacture/packaging.
-   - "best_before": Best before duration or expiry date.
-   - "batch_number": Batch / lot number.
-   - "manufacturer_address": Full manufacturer name, address, customer grievance email/phone.
+Your task is to perform thorough optical character recognition (OCR) on the uploaded food packaging image(s) and extract all visible declarations, nutrition values, and packaging text.
 
 RULES:
-- NEVER invent or hallucinate missing data. If a field or panel is not visible in any image, return its value as null and status as "missing" with confidence 0.
-- If text is blurred, partially cut off, or questionable, assign status "uncertain" and confidence between 0.4 and 0.74.
-- If clearly visible and verified, assign status "ok" and confidence >= 0.75.
-- Return ONLY valid JSON adhering strictly to the schema.`;
+1. ONLY return fields that are ACTUALLY VISIBLE AND READABLE in the uploaded packaging image(s).
+2. DO NOT output placeholder fields or keys with null or "missing" values. If a field or panel is not in the image, simply omit it.
+3. Inspect ALL readable text across the packaging:
+   - Product Identity: "product_name" (full commercial name), "brand" (manufacturer/brand name), "veg_non_veg" ("veg" if green dot in green square, "non_veg" if brown triangle in brown square).
+   - Packaging Claims: Any front-of-pack claims (e.g. "High Protein", "No Added Sugar", "100% Whole Wheat").
+   - Net Quantity: "net_quantity" (e.g. "100 g", "500 ml", "50g").
+   - Nutrition Table / Nutrition Facts (Supports both US FDA Nutrition Facts and Indian/Global FSSAI tables):
+     * "serving_size": Serving size as printed (e.g. "1 oz (28g / about 15 chips)").
+     * "energy_kcal": Calories or Energy (e.g. "160", unit: "kcal" or "Calories").
+     * "total_fat_g": Total Fat (e.g. "10", unit: "g").
+     * "saturated_fat_g": Saturated Fat (e.g. "1.5", unit: "g").
+     * "trans_fat_g": Trans Fat (e.g. "0", unit: "g").
+     * "cholesterol_mg": Cholesterol (e.g. "0", unit: "mg").
+     * "sodium_mg": Sodium (e.g. "170", unit: "mg").
+     * "potassium_mg": Potassium (e.g. "350", unit: "mg").
+     * "carbohydrates_g": Total Carbohydrate (e.g. "15", unit: "g").
+     * "dietary_fiber_g": Dietary Fiber (e.g. "1", unit: "g").
+     * "total_sugar_g": Total Sugars or Sugars (e.g. "<1" or "1", unit: "g").
+     * "added_sugar_g": Added Sugars if declared (e.g. "0", unit: "g").
+     * "protein_g": Protein (e.g. "2", unit: "g").
+     * Extract any other declared vitamins or minerals (e.g. "vitamin_c", "iron", "calcium").
+     * IMPORTANT: Extract declared numbers as printed (whether given per serving, per 100g, or per pack). Do NOT discard numbers because they are per serving!
+   - Ingredients & Allergens:
+     * "ingredients": Full ingredient sequence as printed (e.g. "Potatoes, Vegetable Oil (Sunflower, Corn and/or Canola Oil), and Salt.").
+     * "allergens": Allergen declaration if printed.
+     * "palm_oil_present": "true" if palm oil or palmolein is listed, else "false".
+   - Statutory Declarations:
+     * "mrp": Maximum retail price including currency symbol (e.g. "₹20.00" or "Rs 20").
+     * "fssai_license": 14-digit FSSAI license number.
+     * "date_of_manufacture": Manufacturing/packaging date.
+     * "best_before": Best before duration or expiry date.
+     * "batch_number": Batch or lot number.
+     * "manufacturer_address": Manufacturer name, address, or customer care details.
+
+4. Assign confidence >= 0.85 and status "ok" if clearly readable. If partially cut off or questionable, assign status "uncertain" and confidence 0.5-0.74.
+5. Return ONLY a single JSON object strictly matching this format:
+{
+  "detected_panels": ["front", "ingredients", "nutrition", "declaration"],
+  "product_summary": {
+    "product_name": "Product Name or null",
+    "brand": "Brand Name or null",
+    "category": "Category or null",
+    "veg_non_veg": "veg"
+  },
+  "fields": [
+    {
+      "key": "product_name",
+      "value": "Exact text from label",
+      "unit": null,
+      "confidence": 0.95,
+      "status": "ok",
+      "panel_source": "front"
+    }
+  ]
+}`;
 
 /**
- * Intelligent realistic fallback profile for Indian food packs when Gemini API is offline or quota exceeded.
+ * Resilient normalizer that maps various JSON output shapes from LLMs into standard ExtractionResponse.
  */
-export function getIntelligentFallback(detectedTitle?: string): ExtractionResponse {
-  const isChips = detectedTitle?.toLowerCase().includes("lays") || detectedTitle?.toLowerCase().includes("chip");
-  const isJuice = detectedTitle?.toLowerCase().includes("nectar") || detectedTitle?.toLowerCase().includes("juice");
+function normalizeGeminiOutput(raw: any, titleHint?: string): ExtractionResponse {
+  let detectedPanels: ("front" | "ingredients" | "nutrition" | "declaration")[] = ["front"];
+  const productSummary = {
+    product_name: titleHint || null,
+    brand: null as string | null,
+    category: null as string | null | undefined,
+    veg_non_veg: "uncertain" as "veg" | "non_veg" | "uncertain" | "missing",
+  };
+  let rawFields: any[] = [];
 
-  if (isChips) {
-    return {
-      detected_panels: ["front", "ingredients", "nutrition", "declaration"],
-      product_summary: {
-        product_name: detectedTitle || "Lay's India's Magic Masala Potato Chips",
-        brand: "Lay's (PepsiCo India)",
-        category: "Potato Chips / Savory Snack",
-        veg_non_veg: "veg",
-      },
-      fields: [
-        { key: "product_name", value: detectedTitle || "Lay's India's Magic Masala", unit: null, confidence: 0.98, status: "ok", panel_source: "front" },
-        { key: "brand", value: "Lay's (PepsiCo India)", unit: null, confidence: 0.95, status: "ok", panel_source: "front" },
-        { key: "veg_non_veg", value: "veg (Green Dot present)", unit: null, confidence: 0.95, status: "ok", panel_source: "front" },
-        { key: "net_quantity", value: "50", unit: "g", confidence: 0.92, status: "ok", panel_source: "declaration" },
-        { key: "mrp", value: "20.00", unit: "INR", confidence: 0.9, status: "ok", panel_source: "declaration" },
-        { key: "ingredients", value: "Potato, Edible Vegetable Oil (Palmolein), Seasoning (Spices and Condiments, Iodized Salt, Sugar, Black Salt, Tomato Powder, Onion Powder, Garlic Powder)", unit: null, confidence: 0.88, status: "ok", panel_source: "ingredients" },
-        { key: "palm_oil_present", value: "true (Palmolein)", unit: null, confidence: 0.92, status: "ok", panel_source: "ingredients" },
-        { key: "allergens", value: "May contain Milk, Wheat, and Soy", unit: null, confidence: 0.72, status: "uncertain", panel_source: "ingredients" },
-        { key: "energy_kcal", value: "555", unit: "kcal", confidence: 0.92, status: "ok", panel_source: "nutrition" },
-        { key: "protein_g", value: "7.0", unit: "g", confidence: 0.89, status: "ok", panel_source: "nutrition" },
-        { key: "carbohydrates_g", value: "51.4", unit: "g", confidence: 0.91, status: "ok", panel_source: "nutrition" },
-        { key: "total_sugar_g", value: "3.5", unit: "g", confidence: 0.94, status: "ok", panel_source: "nutrition" },
-        { key: "added_sugar_g", value: "2.1", unit: "g", confidence: 0.85, status: "ok", panel_source: "nutrition" },
-        { key: "total_fat_g", value: "35.7", unit: "g", confidence: 0.93, status: "ok", panel_source: "nutrition" },
-        { key: "saturated_fat_g", value: "16.8", unit: "g", confidence: 0.88, status: "ok", panel_source: "nutrition" },
-        { key: "trans_fat_g", value: "0.1", unit: "g", confidence: 0.9, status: "ok", panel_source: "nutrition" },
-        { key: "sodium_mg", value: "887", unit: "mg", confidence: 0.89, status: "ok", panel_source: "nutrition" },
-        { key: "fssai_license", value: "10014064000435", unit: null, confidence: 0.82, status: "ok", panel_source: "declaration" },
-        { key: "best_before", value: "4 Months from Manufacture", unit: null, confidence: 0.8, status: "ok", panel_source: "declaration" },
-        { key: "batch_number", value: null, unit: null, confidence: 0, status: "missing", panel_source: "declaration" },
-      ],
-    };
+  if (Array.isArray(raw)) {
+    rawFields = raw;
+  } else if (raw && typeof raw === "object") {
+    if (Array.isArray(raw.detected_panels)) {
+      detectedPanels = raw.detected_panels.filter((p: string) =>
+        ["front", "ingredients", "nutrition", "declaration"].includes(p)
+      );
+      if (detectedPanels.length === 0) detectedPanels = ["front"];
+    }
+
+    if (raw.product_summary && typeof raw.product_summary === "object") {
+      productSummary.product_name = raw.product_summary.product_name || productSummary.product_name;
+      productSummary.brand = raw.product_summary.brand || null;
+      productSummary.category = raw.product_summary.category || null;
+      const v = String(raw.product_summary.veg_non_veg || "").toLowerCase();
+      if (v.includes("non") || v === "non_veg") productSummary.veg_non_veg = "non_veg";
+      else if (v.includes("veg")) productSummary.veg_non_veg = "veg";
+      else if (v === "missing") productSummary.veg_non_veg = "missing";
+      else productSummary.veg_non_veg = "uncertain";
+    }
+
+    if (Array.isArray(raw.fields)) {
+      rawFields = raw.fields;
+    } else if (raw.data && Array.isArray(raw.data.fields)) {
+      rawFields = raw.data.fields;
+    } else if (Array.isArray(raw.extracted_fields)) {
+      rawFields = raw.extracted_fields;
+    } else {
+      const ignoredKeys = new Set(["detected_panels", "product_summary", "success", "ok", "error", "message"]);
+      rawFields = Object.entries(raw)
+        .filter(([k]) => !ignoredKeys.has(k))
+        .map(([k, v]) => {
+          if (v && typeof v === "object" && !Array.isArray(v) && "value" in v) {
+            return { key: k, ...(v as object) };
+          }
+          return {
+            key: k,
+            value: v != null ? (typeof v === "object" ? JSON.stringify(v) : String(v)) : null,
+            confidence: 0.85,
+            status: v != null ? "ok" : "missing",
+            panel_source:
+              k.includes("sugar") || k.includes("energy") || k.includes("fat") || k.includes("sodium") || k.includes("protein")
+                ? "nutrition"
+                : k.includes("ingredient") || k.includes("allergen")
+                  ? "ingredients"
+                  : k.includes("mrp") || k.includes("fssai") || k.includes("expiry") || k.includes("date") || k.includes("batch")
+                    ? "declaration"
+                    : "front",
+          };
+        });
+    }
   }
 
-  // Default biscuits / snack profile
+  const fields = rawFields.map((f: any) => {
+    const key = String(f.key || f.name || "field");
+    const rawVal = f.value ?? f.val;
+    const value = rawVal != null ? (typeof rawVal === "object" ? JSON.stringify(rawVal) : String(rawVal)) : null;
+    const unit = f.unit ? String(f.unit) : null;
+    const confidence =
+      typeof f.confidence === "number" && !isNaN(f.confidence)
+        ? Math.max(0, Math.min(1, f.confidence))
+        : value
+          ? 0.85
+          : 0;
+    const rawStatus = String(f.status || "").toLowerCase();
+    const status: "ok" | "uncertain" | "missing" =
+      rawStatus === "ok" || rawStatus === "uncertain" || rawStatus === "missing"
+        ? rawStatus
+        : value
+          ? "ok"
+          : "missing";
+    const rawPanel = String(f.panel_source || f.panel || "").toLowerCase();
+    const panel_source: "front" | "ingredients" | "nutrition" | "declaration" | "unknown" =
+      rawPanel === "front" || rawPanel === "ingredients" || rawPanel === "nutrition" || rawPanel === "declaration"
+        ? rawPanel
+        : "unknown";
+
+    return {
+      key,
+      value,
+      unit,
+      confidence,
+      status,
+      panel_source,
+      bounding_box:
+        Array.isArray(f.bounding_box) && f.bounding_box.length === 4 ? f.bounding_box : undefined,
+    };
+  })
+  // Only keep fields that were genuinely detected with a real value
+  .filter((f) => f.value !== null && f.value.trim() !== "" && f.status !== "missing");
+
+  // Ensure product_name and brand are in fields list for display
+  if (productSummary.product_name && !fields.some((f) => f.key === "product_name")) {
+    fields.unshift({
+      key: "product_name",
+      value: productSummary.product_name,
+      unit: null,
+      confidence: 0.95,
+      status: "ok",
+      panel_source: "front",
+      bounding_box: undefined,
+    });
+  }
+  if (productSummary.brand && !fields.some((f) => f.key === "brand")) {
+    fields.unshift({
+      key: "brand",
+      value: productSummary.brand,
+      unit: null,
+      confidence: 0.95,
+      status: "ok",
+      panel_source: "front",
+      bounding_box: undefined,
+    });
+  }
+
   return {
-    detected_panels: ["front", "ingredients", "nutrition", "declaration"],
-    product_summary: {
-      product_name: detectedTitle || "Digestive High Fibre Wheat Biscuits",
-      brand: "Britannia Industries Ltd",
-      category: "Biscuits & Cookies",
-      veg_non_veg: "veg",
-    },
-    fields: [
-      { key: "product_name", value: detectedTitle || "Digestive High Fibre Biscuits", unit: null, confidence: 0.96, status: "ok", panel_source: "front" },
-      { key: "brand", value: "Britannia Industries Ltd", unit: null, confidence: 0.94, status: "ok", panel_source: "front" },
-      { key: "veg_non_veg", value: "veg", unit: null, confidence: 0.95, status: "ok", panel_source: "front" },
-      { key: "net_quantity", value: "100", unit: "g", confidence: 0.92, status: "ok", panel_source: "declaration" },
-      { key: "mrp", value: "35.00", unit: "INR", confidence: 0.85, status: "ok", panel_source: "declaration" },
-      { key: "ingredients", value: "Refined Wheat Flour (Maida 55%), Edible Vegetable Oil (Refined Palm Oil), Sugar, Wheat Bran (4.5%), Invert Sugar Syrup, Raising Agents [INS 503(ii), INS 500(ii)], Iodised Salt", unit: null, confidence: 0.88, status: "ok", panel_source: "ingredients" },
-      { key: "palm_oil_present", value: "true (Refined Palm Oil)", unit: null, confidence: 0.92, status: "ok", panel_source: "ingredients" },
-      { key: "allergens", value: "Contains Wheat, Milk, and Soya", unit: null, confidence: 0.74, status: "uncertain", panel_source: "ingredients" },
-      { key: "energy_kcal", value: "482", unit: "kcal", confidence: 0.92, status: "ok", panel_source: "nutrition" },
-      { key: "protein_g", value: "8.2", unit: "g", confidence: 0.89, status: "ok", panel_source: "nutrition" },
-      { key: "carbohydrates_g", value: "68.0", unit: "g", confidence: 0.91, status: "ok", panel_source: "nutrition" },
-      { key: "total_sugar_g", value: "22.0", unit: "g", confidence: 0.95, status: "ok", panel_source: "nutrition" },
-      { key: "added_sugar_g", value: "20.5", unit: "g", confidence: 0.88, status: "ok", panel_source: "nutrition" },
-      { key: "total_fat_g", value: "20.0", unit: "g", confidence: 0.9, status: "ok", panel_source: "nutrition" },
-      { key: "saturated_fat_g", value: "11.2", unit: "g", confidence: 0.87, status: "ok", panel_source: "nutrition" },
-      { key: "trans_fat_g", value: "0", unit: "g", confidence: 0.95, status: "ok", panel_source: "nutrition" },
-      { key: "sodium_mg", value: "280", unit: "mg", confidence: 0.9, status: "ok", panel_source: "nutrition" },
-      { key: "fssai_license", value: "10015043001129", unit: null, confidence: 0.82, status: "ok", panel_source: "declaration" },
-      { key: "best_before", value: "6 Months from Packaging", unit: null, confidence: 0.85, status: "ok", panel_source: "declaration" },
-      { key: "batch_number", value: null, unit: null, confidence: 0, status: "missing", panel_source: "declaration" },
-    ],
+    detected_panels: detectedPanels,
+    product_summary: productSummary,
+    fields,
   };
 }
 
 /**
- * Extracts packaging details using Gemini Vision API with automatic fallback.
+ * Extracts packaging details using Gemini Vision API.
+ * Never substitutes mock or dummy data.
  */
 export async function extractWithGemini(
   images: ImageInput[],
   titleHint?: string
-): Promise<{ result: ExtractionResponse; isFallback: boolean; reason?: string }> {
-  const apiKey = process.env.GEMINI_API_KEY || " ";
+): Promise<ExtractionResult> {
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
 
-  if (!apiKey || apiKey.trim() === "") {
-    return {
-      result: getIntelligentFallback(titleHint),
-      isFallback: true,
-      reason: "GEMINI_API_KEY not configured. Running in Demo/Fallback extraction mode.",
-    };
+  if (!apiKey) {
+    throw new Error(
+      "GEMINI_API_KEY is not configured in .env.local. Please provide a valid Google Gemini API key."
+    );
   }
 
   if (images.length === 0) {
-    return {
-      result: getIntelligentFallback(titleHint),
-      isFallback: true,
-      reason: "No image buffers provided for extraction.",
-    };
+    throw new Error("No packaging images were provided for extraction.");
   }
 
   try {
     const ai = new GoogleGenAI({ apiKey });
 
-    // Build multimodal contents
-    const contents: any[] = [];
-    
-    // Add text prompt
-    contents.push({
-      text: `${SYSTEM_INSTRUCTION}\n\nProduct Title / Context Hint: "${titleHint || 'Packaged Food Item'}".\nPlease analyze the attached packaging image(s) and return standard structured JSON matching the schema.`
-    });
+    // Build multimodal contents: attach image parts first, followed by OCR extraction prompt
+    const parts: any[] = [];
 
-    // Add all uploaded images as inline data
     for (const img of images) {
-      contents.push({
+      parts.push({
         inlineData: {
           mimeType: img.mimeType || "image/jpeg",
           data: img.buffer.toString("base64"),
@@ -194,63 +279,123 @@ export async function extractWithGemini(
       });
     }
 
-    // Call Gemini 2.5 Flash / 1.5 Flash
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: contents,
-      config: {
-        responseMimeType: "application/json",
-      },
+    parts.push({
+      text: `${SYSTEM_INSTRUCTION}\n\nContext Hint / Title: "${titleHint || "Packaged Food Product"}".\n\nThoroughly inspect every corner of the packaging image(s) attached above. Read all visible printed text, product names, nutrition table rows, ingredients, and declarations. Return ONLY the fields that are actually visible and printed on the packaging.`,
     });
 
-    const responseText = response.text?.trim() || "";
+    const contents = [{ role: "user", parts }];
+
+    // Call Gemini with automatic retry and model fallback for high-demand spikes
+    const candidateModels = ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-1.5-flash"];
+    let responseText = "";
+    let lastApiError: any = null;
+
+    for (const modelName of candidateModels) {
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const response = await ai.models.generateContent({
+            model: modelName,
+            contents: contents,
+            config: {
+              responseMimeType: "application/json",
+            },
+          });
+
+          responseText = response.text?.trim() || "";
+          if (responseText) break;
+        } catch (callErr: any) {
+          lastApiError = callErr;
+          const errMsg = String(callErr?.message || "");
+          const is503 =
+            callErr?.status === 503 ||
+            errMsg.includes("503") ||
+            errMsg.includes("high demand") ||
+            errMsg.includes("UNAVAILABLE");
+
+          // If temporary 503 spike, wait 1.5s and retry once
+          if (is503 && attempt === 1) {
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+            continue;
+          }
+          // If 404 model not found or exhausted retries, break to next candidate model
+          break;
+        }
+      }
+
+      if (responseText) break;
+    }
+
     if (!responseText) {
-      throw new Error("Empty response received from Gemini Vision model");
+      throw lastApiError || new Error("Empty response received from Gemini Vision model");
     }
 
     // Clean potential markdown blocks if present
     const cleanedJson = responseText.replace(/^```json\s*/i, "").replace(/\s*```$/, "").trim();
     const parsed = JSON.parse(cleanedJson);
 
-    // Validate with Zod
+    // Validate with Zod first
     const validated = ExtractionResponseSchema.safeParse(parsed);
-    if (!validated.success) {
-      console.warn("Zod validation warning on Gemini output:", validated.error.issues);
-      // If slight schema mismatch, try to salvage fields array
-      if (Array.isArray(parsed.fields)) {
-        return {
-          result: {
-            detected_panels: parsed.detected_panels || ["front", "ingredients", "nutrition", "declaration"],
-            product_summary: parsed.product_summary || {
-              product_name: titleHint || null,
-              brand: null,
-              veg_non_veg: "uncertain",
-            },
-            fields: parsed.fields.map((f: any) => ({
-              key: String(f.key || "unknown_field"),
-              value: f.value != null ? String(f.value) : null,
-              unit: f.unit ? String(f.unit) : null,
-              confidence: typeof f.confidence === "number" ? f.confidence : 0.8,
-              status: f.status === "ok" || f.status === "uncertain" || f.status === "missing" ? f.status : (f.value ? "ok" : "missing"),
-              panel_source: f.panel_source || "unknown",
-            })),
-          },
-          isFallback: false,
-        };
+    if (validated.success) {
+      // Filter out empty/missing template fields so only scanned fields are returned
+      const scannedFields = validated.data.fields.filter(
+        (f) => f.value !== null && String(f.value).trim() !== "" && f.status !== "missing"
+      );
+
+      // Ensure product_name and brand are in fields list for display
+      if (validated.data.product_summary.product_name && !scannedFields.some((f) => f.key === "product_name")) {
+        scannedFields.unshift({
+          key: "product_name",
+          value: validated.data.product_summary.product_name,
+          unit: null,
+          confidence: 0.95,
+          status: "ok",
+          panel_source: "front",
+        });
       }
-      throw new Error("Gemini response did not conform to packaging extraction schema");
+      if (validated.data.product_summary.brand && !scannedFields.some((f) => f.key === "brand")) {
+        scannedFields.unshift({
+          key: "brand",
+          value: validated.data.product_summary.brand,
+          unit: null,
+          confidence: 0.95,
+          status: "ok",
+          panel_source: "front",
+        });
+      }
+
+      return {
+        ok: true,
+        result: {
+          ...validated.data,
+          fields: scannedFields,
+        },
+        fields: scannedFields,
+        detected_panels: validated.data.detected_panels,
+        product_summary: validated.data.product_summary,
+        message:
+          scannedFields.length === 0
+            ? "No readable packaging text or declared fields detected in the image."
+            : undefined,
+      };
     }
 
+    // Flexible extraction: normalize whatever JSON structure Gemini produced
+    console.warn("Zod validation notice on Gemini output:", validated.error.issues);
+    const normalized = normalizeGeminiOutput(parsed, titleHint);
+
     return {
-      result: validated.data,
-      isFallback: false,
+      ok: true,
+      result: normalized,
+      fields: normalized.fields,
+      detected_panels: normalized.detected_panels,
+      product_summary: normalized.product_summary,
+      message:
+        normalized.fields.length === 0
+          ? "No readable packaging text or declared fields detected in the image."
+          : undefined,
     };
   } catch (err: any) {
     console.error("Gemini Vision extraction error:", err);
-    return {
-      result: getIntelligentFallback(titleHint),
-      isFallback: true,
-      reason: `Gemini API error (${err.message || 'quota or network'}). Reverted to Demo extraction mode.`,
-    };
+    throw new Error(err.message || "Gemini packaging extraction failed");
   }
 }

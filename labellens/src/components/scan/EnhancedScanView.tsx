@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import {
   Sparkles,
@@ -8,12 +9,8 @@ import {
   AlertTriangle,
   XCircle,
   Save,
-  Layers,
   Image as ImageIcon,
-  Tag,
-  Maximize2,
-  ExternalLink,
-  Info
+  Upload,
 } from "lucide-react";
 import PlainLanguageNutrition from "@/components/dashboard/PlainLanguageNutrition";
 
@@ -42,18 +39,6 @@ interface EnhancedScanViewProps {
   canEdit: boolean;
 }
 
-// Bounding box geometries (normalized percentage coordinates % of image canvas)
-const DEFAULT_BBOX_MAP: Record<string, { x: number; y: number; w: number; h: number }> = {
-  product_name: { x: 15, y: 18, w: 70, h: 20 },
-  brand: { x: 28, y: 6, w: 44, h: 12 },
-  ingredients: { x: 10, y: 34, w: 80, h: 24 },
-  sugar_per_100g: { x: 12, y: 42, w: 76, h: 14 },
-  sodium_per_100g: { x: 12, y: 58, w: 76, h: 14 },
-  net_quantity: { x: 55, y: 76, w: 35, h: 14 },
-  mrp: { x: 10, y: 76, w: 40, h: 14 },
-  veg_non_veg_logo: { x: 80, y: 8, w: 12, h: 12 },
-};
-
 export default function EnhancedScanView({
   scanId,
   initialTitle,
@@ -62,7 +47,7 @@ export default function EnhancedScanView({
   photos,
   canEdit,
 }: EnhancedScanViewProps) {
-  const [title, setTitle] = useState(initialTitle || "Scanned Food Package");
+  const [title, setTitle] = useState(initialTitle || "New Package Scan");
   const [status, setStatus] = useState(initialStatus);
   const [fields, setFields] = useState<Field[]>(initialFields);
   const [photosList, setPhotosList] = useState<Photo[]>(photos);
@@ -72,8 +57,9 @@ export default function EnhancedScanView({
   const [editValue, setEditValue] = useState<string>("");
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [activeTabMobile, setActiveTabMobile] = useState<"fields" | "canvas">("fields");
+  const [hydrated, setHydrated] = useState(false);
 
-  // Hydrate from localStorage for instant demo / client-side extractions
+  // Hydrate from localStorage for instant client-side extractions
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -103,11 +89,11 @@ export default function EnhancedScanView({
             status: f.status,
             bbox: f.bounding_box
               ? {
-                  x: Math.round(f.bounding_box[1] / 10),
-                  y: Math.round(f.bounding_box[0] / 10),
-                  w: Math.round((f.bounding_box[3] - f.bounding_box[1]) / 10),
-                  h: Math.round((f.bounding_box[2] - f.bounding_box[0]) / 10),
-                }
+                x: Math.round(f.bounding_box[1] / 10),
+                y: Math.round(f.bounding_box[0] / 10),
+                w: Math.round((f.bounding_box[3] - f.bounding_box[1]) / 10),
+                h: Math.round((f.bounding_box[2] - f.bounding_box[0]) / 10),
+              }
               : undefined,
           }));
           setFields(loadedFields);
@@ -115,6 +101,8 @@ export default function EnhancedScanView({
       }
     } catch (e) {
       console.warn("Failed to load local scan storage:", e);
+    } finally {
+      setHydrated(true);
     }
   }, [scanId]);
 
@@ -169,7 +157,7 @@ export default function EnhancedScanView({
       setSaveMessage(`✓ Corrected ${f.key} (Audited)`);
       setTimeout(() => setSaveMessage(null), 3000);
     } catch {
-      // In offline / demo mode fallback, update local state
+      // In offline / client mode, update local state
       setFields((cur) => cur.map((item) => (item.id === f.id ? { ...item, value: newValue, status: "ok" } : item)));
       setSaveMessage(`✓ Updated ${f.key}`);
       setTimeout(() => setSaveMessage(null), 3000);
@@ -178,14 +166,38 @@ export default function EnhancedScanView({
     }
   }
 
+  // If neither DB nor localStorage contains the scan, display explicit notice
+  if (hydrated && fields.length === 0 && photosList.length === 0) {
+    return (
+      <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm text-center max-w-xl mx-auto my-12 space-y-4">
+        <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
+          <AlertTriangle className="w-6 h-6" />
+        </div>
+        <h2 className="text-lg font-bold text-slate-900">Scan not found or no fields extracted yet</h2>
+        <p className="text-sm text-slate-500">
+          This scan record does not contain any extracted packaging fields or uploaded panel images.
+        </p>
+        <div className="pt-2">
+          <Link
+            href="/scan/new"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-700 hover:bg-brand-800 text-white font-bold text-sm shadow-sm transition-all"
+          >
+            <Upload className="w-4 h-4" />
+            <span>Upload Packaging Images</span>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   // Active photo
   const currentPhoto = photosList[activePanelIndex] || photosList[0];
 
-  // Helper values for nutrition
+  // Helper values for nutrition - only dynamic checks, no hardcoded numbers
   const sugarField = fields.find((f) => f.key.includes("sugar"))?.value;
   const sodiumField = fields.find((f) => f.key.includes("sodium"))?.value;
-  const sugarVal = sugarField ? parseFloat(sugarField) : 22;
-  const sodiumVal = sodiumField ? parseFloat(sodiumField) : 280;
+  const sugarVal = sugarField ? parseFloat(sugarField) : null;
+  const sodiumVal = sodiumField ? parseFloat(sodiumField) : null;
 
   return (
     <div className="space-y-6">
@@ -216,15 +228,14 @@ export default function EnhancedScanView({
               Scan ID: {scanId.substring(0, 8)}…
             </span>
             <span
-              className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
-                status === "completed"
+              className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${status === "completed"
                   ? "bg-emerald-100 text-emerald-800 border-emerald-300"
                   : status === "needs_review"
-                  ? "bg-amber-100 text-amber-800 border-amber-300"
-                  : status === "processing"
-                  ? "bg-blue-100 text-blue-800 border-blue-300 animate-pulse"
-                  : "bg-slate-100 text-slate-700 border-slate-300"
-              }`}
+                    ? "bg-amber-100 text-amber-800 border-amber-300"
+                    : status === "processing"
+                      ? "bg-blue-100 text-blue-800 border-blue-300 animate-pulse"
+                      : "bg-slate-100 text-slate-700 border-slate-300"
+                }`}
             >
               {status.toUpperCase()}
             </span>
@@ -247,23 +258,21 @@ export default function EnhancedScanView({
         <div className="flex sm:hidden w-full border-t border-slate-100 pt-3 gap-2">
           <button
             onClick={() => setActiveTabMobile("fields")}
-            className={`flex-1 py-1.5 text-xs font-bold rounded-lg ${
-              activeTabMobile === "fields"
+            className={`flex-1 py-1.5 text-xs font-bold rounded-lg ${activeTabMobile === "fields"
                 ? "bg-brand-700 text-white"
                 : "bg-slate-100 text-slate-600"
-            }`}
+              }`}
           >
             Fields ({fields.length})
           </button>
           <button
             onClick={() => setActiveTabMobile("canvas")}
-            className={`flex-1 py-1.5 text-xs font-bold rounded-lg ${
-              activeTabMobile === "canvas"
+            className={`flex-1 py-1.5 text-xs font-bold rounded-lg ${activeTabMobile === "canvas"
                 ? "bg-brand-700 text-white"
                 : "bg-slate-100 text-slate-600"
-            }`}
+              }`}
           >
-            Image Canvas ({photos.length})
+            Image Canvas ({photosList.length})
           </button>
         </div>
       </div>
@@ -272,9 +281,8 @@ export default function EnhancedScanView({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column: Interactive Image Canvas & Bounding Box Projection */}
         <div
-          className={`lg:col-span-5 space-y-4 ${
-            activeTabMobile === "fields" ? "hidden sm:block" : "block"
-          }`}
+          className={`lg:col-span-5 space-y-4 ${activeTabMobile === "fields" ? "hidden sm:block" : "block"
+            }`}
         >
           <div className="bg-slate-900 rounded-2xl p-4 text-white shadow-md border border-slate-800">
             <div className="flex items-center justify-between mb-3">
@@ -309,9 +317,9 @@ export default function EnhancedScanView({
                 </div>
               )}
 
-              {/* Bounding Box Overlays */}
+              {/* Bounding Box Overlays - only rendered if returned by the vision model */}
               {fields.map((f) => {
-                const bbox = f.bbox || DEFAULT_BBOX_MAP[f.key];
+                const bbox = f.bbox;
                 if (!bbox) return null;
                 const isHighlighted = highlightedFieldKey === f.key;
 
@@ -331,26 +339,24 @@ export default function EnhancedScanView({
                       width: `${bbox.w}%`,
                       height: `${bbox.h}%`,
                     }}
-                    className={`absolute cursor-pointer transition-all duration-200 rounded border-2 flex items-start justify-start p-1 ${
-                      isHighlighted
+                    className={`absolute cursor-pointer transition-all duration-200 rounded border-2 flex items-start justify-start p-1 ${isHighlighted
                         ? "border-emerald-400 bg-emerald-500/25 ring-4 ring-emerald-400/40 z-20 bbox-active"
                         : f.status === "missing"
-                        ? "border-rose-500 bg-rose-500/15 z-10"
-                        : f.status === "uncertain"
-                        ? "border-amber-400 bg-amber-400/15 z-10"
-                        : "border-brand-500/60 bg-brand-500/10 hover:border-brand-400 z-0"
-                    }`}
+                          ? "border-rose-500 bg-rose-500/15 z-10"
+                          : f.status === "uncertain"
+                            ? "border-amber-400 bg-amber-400/15 z-10"
+                            : "border-brand-500/60 bg-brand-500/10 hover:border-brand-400 z-0"
+                      }`}
                   >
                     <span
-                      className={`text-[9px] font-mono font-bold px-1 rounded shadow-sm leading-none ${
-                        isHighlighted
+                      className={`text-[9px] font-mono font-bold px-1 rounded shadow-sm leading-none ${isHighlighted
                           ? "bg-emerald-600 text-white"
                           : f.status === "missing"
-                          ? "bg-rose-600 text-white"
-                          : f.status === "uncertain"
-                          ? "bg-amber-500 text-slate-900"
-                          : "bg-slate-900/90 text-white"
-                      }`}
+                            ? "bg-rose-600 text-white"
+                            : f.status === "uncertain"
+                              ? "bg-amber-500 text-slate-900"
+                              : "bg-slate-900/90 text-white"
+                        }`}
                     >
                       {f.key}
                     </span>
@@ -366,11 +372,10 @@ export default function EnhancedScanView({
                   <button
                     key={p.id}
                     onClick={() => setActivePanelIndex(idx)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                      activePanelIndex === idx
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${activePanelIndex === idx
                         ? "bg-brand-700 text-white border-brand-500 shadow-sm"
                         : "bg-slate-800 text-slate-400 border-slate-700 hover:text-white"
-                    }`}
+                      }`}
                   >
                     {p.panel}
                   </button>
@@ -381,7 +386,9 @@ export default function EnhancedScanView({
             <div className="mt-3 pt-3 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                Hover any field card to project its bounding box.
+                {fields.some((f) => f.bbox)
+                  ? "Hover any field card to project its bounding box."
+                  : "Bounding box overlays appear when coordinates are detected."}
               </span>
             </div>
           </div>
@@ -389,9 +396,8 @@ export default function EnhancedScanView({
 
         {/* Right Column: Extracted Fields Review & Inline Live Correction */}
         <div
-          className={`lg:col-span-7 space-y-4 ${
-            activeTabMobile === "canvas" ? "hidden sm:block" : "block"
-          }`}
+          className={`lg:col-span-7 space-y-4 ${activeTabMobile === "canvas" ? "hidden sm:block" : "block"
+            }`}
         >
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-4 border-b border-slate-200 flex items-center justify-between">
@@ -409,7 +415,7 @@ export default function EnhancedScanView({
             {fields.length === 0 ? (
               <div className="p-8 text-center text-slate-500">
                 <span className="inline-block w-3 h-3 rounded-full bg-blue-500 animate-pulse mr-2" />
-                Waiting for extraction job to process…
+                No fields extracted for this package.
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
@@ -422,11 +428,10 @@ export default function EnhancedScanView({
                       key={f.id}
                       onMouseEnter={() => setHighlightedFieldKey(f.key)}
                       onMouseLeave={() => setHighlightedFieldKey(null)}
-                      className={`p-4 transition-all ${
-                        isHighlighted
+                      className={`p-4 transition-all ${isHighlighted
                           ? "bg-brand-50/70 border-l-4 border-l-brand-600"
                           : "hover:bg-slate-50/80 border-l-4 border-l-transparent"
-                      }`}
+                        }`}
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                         <div className="space-y-1">
@@ -494,11 +499,10 @@ export default function EnhancedScanView({
                           ) : (
                             <div className="flex items-baseline gap-2">
                               <span
-                                className={`text-sm ${
-                                  f.value
+                                className={`text-sm ${f.value
                                     ? "font-bold text-slate-900"
                                     : "italic text-rose-600 font-medium"
-                                }`}
+                                  }`}
                               >
                                 {f.value ?? "Unreadable / Missing value"}
                               </span>
@@ -531,12 +535,20 @@ export default function EnhancedScanView({
             )}
           </div>
 
-          {/* Plain-Language Nutrition Preview */}
-          <PlainLanguageNutrition
-            sugarGrams={sugarVal}
-            sodiumMg={sodiumVal}
-            servingGrams={100}
-          />
+          {/* Plain-Language Nutrition Preview - Only rendered if real nutritional fields detected */}
+          {sugarVal !== null || sodiumVal !== null ? (
+            <PlainLanguageNutrition
+              sugarGrams={sugarVal}
+              sodiumMg={sodiumVal}
+              servingGrams={100}
+            />
+          ) : (
+            <div className="bg-white rounded-xl border border-slate-200 p-6 text-center shadow-sm">
+              <p className="text-sm text-slate-500 font-medium">
+                No nutritional values declared or detected on scanned panels.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

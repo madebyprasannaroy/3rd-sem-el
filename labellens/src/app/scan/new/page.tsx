@@ -123,70 +123,41 @@ export default function NewScan() {
 
       setScanStage("Running Gemini Vision OCR extraction...");
 
-      // Try the direct extraction route first (no Supabase needed)
-      let extractionResult: any = null;
-      let usedDirect = false;
+      const directRes = await fetch("/api/extract-direct", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          images: imagePayloads,
+          title: title.trim() || undefined,
+        }),
+      });
 
-      try {
-        const directRes = await fetch("/api/extract-direct", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            images: imagePayloads,
-            title: title.trim() || undefined,
-          }),
-        });
+      const extractionData = await directRes.json().catch(() => null);
 
-        if (directRes.ok) {
-          extractionResult = await directRes.json();
-          usedDirect = true;
-        }
-      } catch {
-        // If direct extraction fails, try the Supabase-based flow
-      }
-
-      // If direct extraction didn't work, try the original Supabase flow
-      if (!usedDirect) {
-        setScanStage("Uploading to scan database...");
-        try {
-          const created = await fetch("/api/scans", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title: title.trim() || undefined, scan_type: scanType }),
-          });
-
-          if (created.ok) {
-            const { id } = await created.json();
-
-            // Upload images to Supabase storage
-            for (const entry of filledEntries) {
-              const fd = new FormData();
-              fd.append("file", entry.file);
-              fd.append("panel", entry.panel);
-              await fetch(`/api/scans/${id}/images`, { method: "POST", body: fd }).catch(() => {});
-            }
-
-            setScanStage("Running extraction pipeline...");
-            fetch(`/api/scans/${id}/extract`, { method: "POST" }).catch(() => {});
-            await new Promise((r) => setTimeout(r, 700));
-            window.location.href = `/scan/${id}`;
-            return;
-          }
-        } catch {
-          // Fall through to fallback
-        }
+      if (!directRes.ok || !extractionData?.ok) {
+        const errorMsg = extractionData?.error || `Extraction failed with HTTP status ${directRes.status}`;
+        throw new Error(errorMsg);
       }
 
       setScanStage("Preparing scan review...");
 
-      // Store extraction results + photo previews in localStorage for the review page
+      const resolvedTitle =
+        title.trim() ||
+        extractionData.product_summary?.product_name ||
+        "New Package Scan";
+
+      // Store ONLY genuine extracted fields and image data in localStorage
       const scanData = {
         id: scanId,
-        title: title.trim() || "Untitled Food Package",
+        title: resolvedTitle,
         scanType,
         status: "needs_review",
         createdAt: new Date().toISOString(),
-        extraction: extractionResult,
+        extraction: {
+          detected_panels: extractionData.detected_panels || [],
+          product_summary: extractionData.product_summary || null,
+          fields: extractionData.fields || [],
+        },
         photos: photoData,
       };
 

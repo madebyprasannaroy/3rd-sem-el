@@ -1,26 +1,26 @@
 "use client";
 
-import { Sparkles, Info, Coffee, Droplet, HeartCrack, CheckCircle, AlertTriangle } from "lucide-react";
+import { Sparkles, Info, Coffee, Droplet, HeartCrack, CheckCircle } from "lucide-react";
 
 interface PlainLanguageNutritionProps {
-  sugarGrams?: number;
-  sodiumMg?: number;
-  saturatedFatGrams?: number;
-  transFatGrams?: number;
+  sugarGrams?: number | null;
+  sodiumMg?: number | null;
+  saturatedFatGrams?: number | null;
+  transFatGrams?: number | null;
   servingGrams?: number;
 }
 
 export default function PlainLanguageNutrition({
-  sugarGrams = 22,
-  sodiumMg = 280,
-  saturatedFatGrams = 11.2,
-  transFatGrams = 0,
+  sugarGrams,
+  sodiumMg,
+  saturatedFatGrams,
+  transFatGrams,
   servingGrams = 100,
 }: PlainLanguageNutritionProps) {
   // Deterministic math: 1 level standard teaspoon = 4g sugar
-  const sugarTeaspoons = (sugarGrams / 4).toFixed(1);
+  const sugarTeaspoons = sugarGrams != null ? (sugarGrams / 4).toFixed(1) : null;
   // Sodium to Salt equivalent: Salt (g) = Sodium (mg) * 2.54 / 1000
-  const saltEquivalentGrams = ((sodiumMg * 2.54) / 1000).toFixed(2);
+  const saltEquivalentGrams = sodiumMg != null ? ((sodiumMg * 2.54) / 1000).toFixed(2) : null;
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -49,17 +49,25 @@ export default function PlainLanguageNutrition({
                 Sugar in Teaspoons
               </span>
               <span className="text-xs font-bold bg-amber-200/70 px-1.5 py-0.5 rounded text-amber-800">
-                {sugarGrams}g Total
+                {sugarGrams != null ? `${sugarGrams}g Total` : "Not Declared"}
               </span>
             </div>
             <div className="my-2">
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-3xl font-extrabold text-amber-900">~{sugarTeaspoons}</span>
-                <span className="text-sm font-medium text-amber-800">level teaspoons</span>
-              </div>
-              <p className="text-xs text-amber-800 mt-1">
-                Assuming standard 4.0g per household level teaspoon.
-              </p>
+              {sugarTeaspoons != null ? (
+                <>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-3xl font-extrabold text-amber-900">~{sugarTeaspoons}</span>
+                    <span className="text-sm font-medium text-amber-800">level teaspoons</span>
+                  </div>
+                  <p className="text-xs text-amber-800 mt-1">
+                    Assuming standard 4.0g per household level teaspoon.
+                  </p>
+                </>
+              ) : (
+                <p className="text-xs text-amber-800 italic mt-2">
+                  Total sugars value not declared or detected on package panels.
+                </p>
+              )}
             </div>
           </div>
           <div className="mt-2 pt-2 border-t border-amber-200/80 flex items-center gap-1 text-[11px] text-amber-700">
@@ -77,17 +85,25 @@ export default function PlainLanguageNutrition({
                 Sodium vs. Table Salt
               </span>
               <span className="text-xs font-bold bg-blue-200/70 px-1.5 py-0.5 rounded text-blue-800">
-                {sodiumMg}mg
+                {sodiumMg != null ? `${sodiumMg}mg` : "Not Declared"}
               </span>
             </div>
             <div className="my-2">
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-3xl font-extrabold text-blue-900">~{saltEquivalentGrams}g</span>
-                <span className="text-sm font-medium text-blue-800">salt equivalent</span>
-              </div>
-              <p className="text-xs text-blue-800 mt-1">
-                Elemental sodium is not identical to NaCl table salt (conversion factor 2.54).
-              </p>
+              {saltEquivalentGrams != null ? (
+                <>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-3xl font-extrabold text-blue-900">~{saltEquivalentGrams}g</span>
+                    <span className="text-sm font-medium text-blue-800">salt equivalent</span>
+                  </div>
+                  <p className="text-xs text-blue-800 mt-1">
+                    Elemental sodium is not identical to NaCl table salt (conversion factor 2.54).
+                  </p>
+                </>
+              ) : (
+                <p className="text-xs text-blue-800 italic mt-2">
+                  Sodium value not declared or detected on package panels.
+                </p>
+              )}
             </div>
           </div>
           <div className="mt-2 pt-2 border-t border-blue-200/80 flex items-center gap-1 text-[11px] text-blue-700">
@@ -111,13 +127,19 @@ export default function PlainLanguageNutrition({
             <div className="my-2 space-y-1.5 text-xs text-emerald-950">
               <div className="flex items-center justify-between">
                 <span className="text-slate-600">Saturated Fatty Acids:</span>
-                <span className="font-semibold">{saturatedFatGrams}g</span>
+                <span className="font-semibold">
+                  {saturatedFatGrams != null ? `${saturatedFatGrams}g` : "Not declared"}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-600">Trans Fatty Acids:</span>
                 <span className="font-semibold flex items-center gap-1 text-emerald-700">
                   <CheckCircle className="w-3.5 h-3.5" />
-                  {transFatGrams === 0 ? "0g (Compliant <2%)" : `${transFatGrams}g`}
+                  {transFatGrams != null
+                    ? transFatGrams === 0
+                      ? "0g (Compliant <2%)"
+                      : `${transFatGrams}g`
+                    : "Not declared"}
                 </span>
               </div>
             </div>

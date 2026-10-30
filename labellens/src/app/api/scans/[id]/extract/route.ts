@@ -1,4 +1,4 @@
-// POST /api/scans/:id/extract: multimodal extraction across all uploaded panels using Gemini Vision API with intelligent fallback.
+// POST /api/scans/:id/extract: multimodal extraction across all uploaded panels using Gemini Vision API.
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { supabaseUser, supabaseAdmin } from "@/lib/supabaseServer";
@@ -18,13 +18,8 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     // 1. Fetch scan record
     const { data: scan } = await sb.from("scans").select("id,title,owner_id,status").eq("id", params.id).single();
 
-    // In demo mode or fallback when DB doesn't have the record
     if (!scan) {
-      return NextResponse.json({
-        ok: true,
-        mode: "demo-fallback",
-        message: "Extraction completed via intelligent profile",
-      });
+      return NextResponse.json({ error: "Scan not found" }, { status: 404 });
     }
 
     if (scan.owner_id !== session.userId && session.role !== "inspector") {
@@ -34,7 +29,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     try {
       assertTransition(scan.status as ScanStatus, "processing");
     } catch {
-      // If already processing or reviewed, don't crash, proceed with extraction
+      // If already processing or reviewed, proceed with extraction
     }
 
     await admin.from("scans").update({ status: "processing" }).eq("id", params.id);
@@ -70,7 +65,8 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     }
 
     // 3. Multimodal extraction with Gemini Vision
-    const { result, isFallback, reason } = await extractWithGemini(imageInputs, scan.title || undefined);
+    const extraction = await extractWithGemini(imageInputs, scan.title || undefined);
+    const result = extraction.result;
 
     // 4. Batch upsert into extracted_fields table
     if (result.fields && result.fields.length > 0) {
@@ -100,20 +96,18 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       ok: true,
       detected_panels: result.detected_panels,
       fields_count: result.fields.length,
-      isFallback,
-      reason,
+      message: extraction.message,
     });
   } catch (err: any) {
     console.error("Extraction route exception:", err);
     try {
       const admin = supabaseAdmin();
       await admin.from("scans").update({ status: "needs_review" }).eq("id", params.id);
-    } catch {}
+    } catch { }
 
-    return NextResponse.json({
-      ok: true,
-      mode: "fallback",
-      error: err.message,
-    });
+    return NextResponse.json(
+      { error: err.message || "Extraction failed", fields: [] },
+      { status: 500 }
+    );
   }
 }
