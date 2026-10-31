@@ -1,13 +1,16 @@
-// POST /api/extract-direct: Accepts images as base64 in a JSON body and runs Gemini Vision extraction directly.
+// POST /api/extract-direct: Accepts images as base64 in a JSON body, runs Gemini Vision OCR, and saves directly to Supabase.
 import { NextResponse } from "next/server";
 import { extractWithGemini, type ImageInput } from "@/core/geminiExtractor";
+import { getSession } from "@/lib/auth";
+import { supabaseAdmin, getOrCreateDefaultUserId } from "@/lib/supabaseServer";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { images, title } = body as {
+    const { images, title, scanType } = body as {
       images: { panel: string; base64: string; mimeType: string }[];
       title?: string;
+      scanType?: string;
     };
 
     if (!images || !Array.isArray(images) || images.length === 0) {
@@ -27,8 +30,99 @@ export async function POST(req: Request) {
 
     const extraction = await extractWithGemini(imageInputs, title || undefined);
 
+    let scanId: string | null = null;
+
+    // Persist directly into Supabase database
+    try {
+      const admin = supabaseAdmin();
+      const session = await getSession();
+
+      let ownerId: string | null = null;
+      if (session && !session.isDemo && session.userId && session.userId.length === 36) {
+        ownerId = session.userId;
+      } else {
+        ownerId = await getOrCreateDefaultUserId();
+      }
+
+      if (ownerId) {
+        const resolvedTitle =
+          title?.trim() ||
+          extraction.product_summary?.product_name ||
+          "New Package Scan";
+
+        const { data: scanRow, error: scanInsertErr } = await admin
+          .from("scans")
+          .insert({
+            title: resolvedTitle,
+            owner_id: ownerId,
+            scan_type: scanType === "draft_label" ? "draft_label" : "product",
+            status: "needs_review",
+          })
+          .select("id")
+          .single();
+
+        if (!scanInsertErr && scanRow?.id) {
+          scanId = scanRow.id;
+
+          // Upload images to Supabase storage and create image_assets rows
+          const assetMap = new Map<string, string>();
+          for (const [idx, img] of imageInputs.entries()) {
+            try {
+              const fileExt = img.mimeType.split("/")[1] || "jpeg";
+              const storageKey = `${ownerId}/${scanRow.id}/panel-${idx}.${fileExt}`;
+              await admin.storage
+                .from("scan-images")
+                .upload(storageKey, img.buffer, { contentType: img.mimeType, upsert: true });
+
+              const validPanel: "front" | "ingredients" | "nutrition" | "declaration" =
+                img.panelHint === "ingredients" ||
+                img.panelHint === "nutrition" ||
+                img.panelHint === "declaration"
+                  ? img.panelHint
+                  : "front";
+
+              const { data: assetRow } = await admin
+                .from("image_assets")
+                .insert({
+                  scan_id: scanRow.id,
+                  owner_id: ownerId,
+                  panel: validPanel,
+                  storage_key: storageKey,
+                })
+                .select("id")
+                .single();
+
+              if (assetRow?.id) {
+                assetMap.set(validPanel, assetRow.id);
+              }
+            } catch (storageErr) {
+              console.warn("Storage upload warning:", storageErr);
+            }
+          }
+
+          // Insert extracted fields into Supabase
+          if (extraction.fields && extraction.fields.length > 0) {
+            const fieldRows = extraction.fields.map((f) => ({
+              scan_id: scanRow.id,
+              key: f.key,
+              value: f.value,
+              unit: f.unit || null,
+              confidence: typeof f.confidence === "number" ? f.confidence : 0.9,
+              status: f.status === "ok" || f.status === "uncertain" || f.status === "missing" ? f.status : "ok",
+              source_asset_id: assetMap.get(f.panel_source) || null,
+            }));
+
+            await admin.from("extracted_fields").insert(fieldRows);
+          }
+        }
+      }
+    } catch (dbErr) {
+      console.warn("Database persistence note:", dbErr);
+    }
+
     return NextResponse.json({
       ok: true,
+      scan_id: scanId,
       detected_panels: extraction.detected_panels,
       product_summary: extraction.product_summary,
       fields: extraction.fields,

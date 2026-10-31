@@ -285,13 +285,13 @@ export async function extractWithGemini(
 
     const contents = [{ role: "user", parts }];
 
-    // Call Gemini with automatic retry and model fallback for high-demand spikes
-    const candidateModels = ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-1.5-flash"];
+    // Try Gemini 3.8 Flash, and fallback to Gemini 3.8 Pro if Flash is overloaded
+    const candidateModels = ["gemini-3.8-flash", "gemini-3.8-pro"];
     let responseText = "";
     let lastApiError: any = null;
 
     for (const modelName of candidateModels) {
-      for (let attempt = 1; attempt <= 2; attempt++) {
+      for (let attempt = 1; attempt <= 3; attempt++) {
         try {
           const response = await ai.models.generateContent({
             model: modelName,
@@ -306,18 +306,22 @@ export async function extractWithGemini(
         } catch (callErr: any) {
           lastApiError = callErr;
           const errMsg = String(callErr?.message || "");
-          const is503 =
+          const isTransient =
             callErr?.status === 503 ||
+            callErr?.status === 429 ||
             errMsg.includes("503") ||
+            errMsg.includes("429") ||
             errMsg.includes("high demand") ||
             errMsg.includes("UNAVAILABLE");
 
-          // If temporary 503 spike, wait 1.5s and retry once
-          if (is503 && attempt === 1) {
-            await new Promise((resolve) => setTimeout(resolve, 1500));
+          // If temporary 503/429 spike, wait with progressive backoff and retry
+          if (isTransient && attempt < 3) {
+            const delay = attempt * 2000; // 2s, 4s
+            await new Promise((resolve) => setTimeout(resolve, delay));
             continue;
           }
-          // If 404 model not found or exhausted retries, break to next candidate model
+
+          // If 404 or exhausted retries, try next candidate model
           break;
         }
       }
@@ -326,6 +330,12 @@ export async function extractWithGemini(
     }
 
     if (!responseText) {
+      const msg = String(lastApiError?.message || "");
+      if (msg.includes("high demand") || msg.includes("503") || lastApiError?.status === 503) {
+        throw new Error(
+          "Gemini Vision servers are currently experiencing a brief traffic spike. Please wait 15–30 seconds and click 'Upload & Extract' again."
+        );
+      }
       throw lastApiError || new Error("Empty response received from Gemini Vision model");
     }
 

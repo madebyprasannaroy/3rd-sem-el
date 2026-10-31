@@ -129,17 +129,26 @@ export default function NewScan() {
         body: JSON.stringify({
           images: imagePayloads,
           title: title.trim() || undefined,
+          scanType,
         }),
       });
 
       const extractionData = await directRes.json().catch(() => null);
 
       if (!directRes.ok || !extractionData?.ok) {
-        const errorMsg = extractionData?.error || `Extraction failed with HTTP status ${directRes.status}`;
-        throw new Error(errorMsg);
+        let rawError = extractionData?.error || `Extraction failed with HTTP status ${directRes.status}`;
+        try {
+          if (typeof rawError === "string" && rawError.trim().startsWith("{")) {
+            const parsed = JSON.parse(rawError);
+            if (parsed?.error?.message) rawError = parsed.error.message;
+          }
+        } catch {}
+        throw new Error(rawError);
       }
 
       setScanStage("Preparing scan review...");
+
+      const finalScanId = extractionData?.scan_id || scanId;
 
       const resolvedTitle =
         title.trim() ||
@@ -148,7 +157,7 @@ export default function NewScan() {
 
       // Store ONLY genuine extracted fields and image data in localStorage
       const scanData = {
-        id: scanId,
+        id: finalScanId,
         title: resolvedTitle,
         scanType,
         status: "needs_review",
@@ -161,12 +170,12 @@ export default function NewScan() {
         photos: photoData,
       };
 
-      localStorage.setItem(`labellens_scan_${scanId}`, JSON.stringify(scanData));
+      localStorage.setItem(`labellens_scan_${finalScanId}`, JSON.stringify(scanData));
 
       // Also store in a scan list for the dashboard
       const scanList = JSON.parse(localStorage.getItem("labellens_scan_list") || "[]");
       scanList.unshift({
-        id: scanId,
+        id: finalScanId,
         title: scanData.title,
         status: "needs_review",
         createdAt: scanData.createdAt,
@@ -177,7 +186,7 @@ export default function NewScan() {
       await new Promise((r) => setTimeout(r, 400));
 
       // Navigate to scan review screen
-      window.location.href = `/scan/${scanId}`;
+      window.location.href = `/scan/${finalScanId}`;
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);

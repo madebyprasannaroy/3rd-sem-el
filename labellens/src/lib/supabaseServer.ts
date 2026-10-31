@@ -29,3 +29,33 @@ export function supabaseAdmin() {
     auth: { persistSession: false },
   });
 }
+
+// Helper to get or create a valid user UUID in Supabase Auth for scan ownership.
+export async function getOrCreateDefaultUserId(): Promise<string | null> {
+  try {
+    const admin = supabaseAdmin();
+    const { data: listData, error: listErr } = await admin.auth.admin.listUsers({ perPage: 10 });
+    if (!listErr && listData?.users && listData.users.length > 0) {
+      return listData.users[0].id;
+    }
+
+    const defaultEmail = "demo@labellens.test";
+    const { data: created } = await admin.auth.admin.createUser({
+      email: defaultEmail,
+      password: "demo-password-12345!",
+      email_confirm: true,
+    });
+
+    if (created?.user?.id) {
+      await admin.from("profiles").upsert({
+        id: created.user.id,
+        role: "customer",
+        display_name: "Demo Customer",
+      });
+      return created.user.id;
+    }
+  } catch (err) {
+    console.warn("Failed to get/create default user in Supabase:", err);
+  }
+  return null;
+}
