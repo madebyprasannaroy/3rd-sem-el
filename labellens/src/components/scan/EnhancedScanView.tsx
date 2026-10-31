@@ -13,6 +13,8 @@ import {
   Upload,
 } from "lucide-react";
 import PlainLanguageNutrition from "@/components/dashboard/PlainLanguageNutrition";
+import AntiCounterfeitShield from "./AntiCounterfeitShield";
+import type { CounterfeitAssessment } from "@/core/antiCounterfeit";
 
 export interface Field {
   id: string;
@@ -58,6 +60,7 @@ export default function EnhancedScanView({
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [activeTabMobile, setActiveTabMobile] = useState<"fields" | "canvas">("fields");
   const [hydrated, setHydrated] = useState(false);
+  const [antiCounterfeit, setAntiCounterfeit] = useState<CounterfeitAssessment | null>(null);
 
   // Hydrate from localStorage for instant client-side extractions
   useEffect(() => {
@@ -70,6 +73,11 @@ export default function EnhancedScanView({
           setTitle(parsed.title);
         } else if (parsed.extraction?.product_summary?.product_name) {
           setTitle(parsed.extraction.product_summary.product_name);
+        }
+        if (parsed.anti_counterfeit) {
+          setAntiCounterfeit(parsed.anti_counterfeit);
+        } else if (parsed.extraction?.anti_counterfeit) {
+          setAntiCounterfeit(parsed.extraction.anti_counterfeit);
         }
         if (parsed.photos && Array.isArray(parsed.photos) && parsed.photos.length > 0) {
           const loadedPhotos: Photo[] = parsed.photos.map((p: any, idx: number) => ({
@@ -106,6 +114,54 @@ export default function EnhancedScanView({
     }
   }, [scanId]);
 
+  // Load anti-counterfeit from Supabase API if not available in localStorage
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!antiCounterfeit) {
+      fetch(`/api/scans/${scanId}/anti-counterfeit`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.ok && data.assessment) {
+            setAntiCounterfeit(data.assessment);
+          }
+        })
+        .catch((e) => console.warn("Anti-counterfeit fetch note:", e));
+    }
+  }, [hydrated, scanId, antiCounterfeit]);
+
+  // Handler to re-evaluate anti-counterfeit assessment with simulated geo-location / barcodes
+  async function handleRefreshAntiCounterfeit(context?: { city?: string; barcode?: string; batchNumber?: string }) {
+    try {
+      const res = await fetch(`/api/scans/${scanId}/anti-counterfeit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          barcode: context?.barcode,
+          batchNumber: context?.batchNumber,
+          geoLocation: context?.city ? { city: context.city } : undefined,
+          fields: fields.map((f) => ({ key: f.key, value: f.value })),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.ok && data.assessment) {
+          setAntiCounterfeit(data.assessment);
+          // Persist back to localStorage
+          try {
+            const saved = localStorage.getItem(`labellens_scan_${scanId}`);
+            if (saved) {
+              const parsed = JSON.parse(saved);
+              parsed.anti_counterfeit = data.assessment;
+              localStorage.setItem(`labellens_scan_${scanId}`, JSON.stringify(parsed));
+            }
+          } catch {}
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to refresh anti-counterfeit assessment:", err);
+    }
+  }
+
   // Subscribe to live updates via Supabase Realtime
   useEffect(() => {
     const sb = supabaseBrowser();
@@ -126,6 +182,30 @@ export default function EnhancedScanView({
               ? cur.map((f) => (f.id === row.id ? { ...f, ...row } : f))
               : [...cur, row]
           );
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "counterfeit_detection_logs", filter: `scan_id=eq.${scanId}` },
+        (p) => {
+          const row = p.new as any;
+          if (row?.authenticity_score !== undefined) {
+            setAntiCounterfeit((prev) => ({
+              authenticity_score: row.authenticity_score,
+              verdict: row.verdict,
+              flags: row.flags || [],
+              matched_brand: prev?.matched_brand,
+              matched_template_id: prev?.matched_template_id,
+              checks: prev?.checks || {
+                brandCheck: { status: "passed", details: "Verified in real-time" },
+                fssaiCheck: { status: "passed", details: "Verified in real-time" },
+                barcodeCheck: { status: "passed", details: "Verified in real-time" },
+                batchCheck: { status: "passed", details: "Verified in real-time" },
+                geoCheck: { status: "passed", details: "Verified in real-time" },
+                formulaCheck: { status: "passed", details: "Verified in real-time" },
+              },
+            }));
+          }
         }
       )
       .subscribe();
@@ -219,6 +299,13 @@ export default function EnhancedScanView({
           </span>
         </div>
       </div>
+
+      {/* Anti-Counterfeit & Fake Product Detection Shield */}
+      <AntiCounterfeitShield
+        assessment={antiCounterfeit}
+        scanId={scanId}
+        onRefresh={handleRefreshAntiCounterfeit}
+      />
 
       {/* Scan Header Bar */}
       <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">

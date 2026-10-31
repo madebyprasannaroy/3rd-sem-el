@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Camera, Upload, ArrowLeft, CheckCircle2, AlertCircle, Sparkles, Trash2, Layers, Scan } from "lucide-react";
+import { Camera, Upload, ArrowLeft, CheckCircle2, AlertCircle, Sparkles, Trash2, Layers, Scan, ShieldCheck, MapPin, ChevronDown, ChevronUp } from "lucide-react";
 import Navbar from "@/components/ui/Navbar";
 
 const PANELS = [
@@ -51,6 +51,10 @@ export default function NewScan() {
   const [mode, setMode] = useState<"quick" | "multi">("multi");
   const [title, setTitle] = useState("");
   const [scanType, setScanType] = useState<"product" | "draft_label">("product");
+  const [scanCity, setScanCity] = useState("Bengaluru");
+  const [manualBarcode, setManualBarcode] = useState("");
+  const [manualBatch, setManualBatch] = useState("");
+  const [showAntiCounterfeitOptions, setShowAntiCounterfeitOptions] = useState(false);
   const [files, setFiles] = useState<Record<string, File | undefined>>({});
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -130,6 +134,9 @@ export default function NewScan() {
           images: imagePayloads,
           title: title.trim() || undefined,
           scanType,
+          barcode: manualBarcode.trim() || undefined,
+          batchNumber: manualBatch.trim() || undefined,
+          geoLocation: scanCity.trim() ? { city: scanCity.trim() } : undefined,
         }),
       });
 
@@ -155,17 +162,19 @@ export default function NewScan() {
         extractionData.product_summary?.product_name ||
         "New Package Scan";
 
-      // Store ONLY genuine extracted fields and image data in localStorage
+      // Store genuine extracted fields, anti-counterfeit evaluation, and image data in localStorage
       const scanData = {
         id: finalScanId,
         title: resolvedTitle,
         scanType,
         status: "needs_review",
         createdAt: new Date().toISOString(),
+        anti_counterfeit: extractionData.anti_counterfeit || null,
         extraction: {
           detected_panels: extractionData.detected_panels || [],
           product_summary: extractionData.product_summary || null,
           fields: extractionData.fields || [],
+          anti_counterfeit: extractionData.anti_counterfeit || null,
         },
         photos: photoData,
       };
@@ -284,6 +293,77 @@ export default function NewScan() {
                   <option value="draft_label">Pre-Print Draft (Manufacturer)</option>
                 </select>
               </div>
+            </div>
+
+            {/* Anti-Counterfeit & Supply Chain Routing Options (Collapsible) */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-3">
+              <button
+                type="button"
+                onClick={() => setShowAntiCounterfeitOptions(!showAntiCounterfeitOptions)}
+                className="w-full flex items-center justify-between text-left text-xs font-bold text-slate-800"
+              >
+                <span className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-brand-700" />
+                  <span>Anti-Counterfeit & Geo-Routing Parameters (Optional)</span>
+                </span>
+                <span className="text-slate-500 font-normal text-[11px] flex items-center gap-1">
+                  {showAntiCounterfeitOptions ? "Hide" : "Configure City / Barcode / Batch"}
+                  {showAntiCounterfeitOptions ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </span>
+              </button>
+
+              {showAntiCounterfeitOptions && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-200/60 animate-in fade-in">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
+                      <MapPin className="w-3 h-3 text-slate-500" />
+                      <span>Scan Location / City</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={scanCity}
+                      onChange={(e) => setScanCity(e.target.value)}
+                      placeholder="e.g. Bengaluru, Mumbai, Delhi, Patna"
+                      className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white focus:ring-1 focus:ring-brand-600 focus:outline-none"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">
+                      Detects gray-market geo diversion
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Physical Barcode (EAN-13)
+                    </label>
+                    <input
+                      type="text"
+                      value={manualBarcode}
+                      onChange={(e) => setManualBarcode(e.target.value)}
+                      placeholder="e.g. 8901063142213"
+                      className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white focus:ring-1 focus:ring-brand-600 focus:outline-none font-mono"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">
+                      Optional if visible on photos
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Inkjet Batch Number
+                    </label>
+                    <input
+                      type="text"
+                      value={manualBatch}
+                      onChange={(e) => setManualBatch(e.target.value)}
+                      placeholder="e.g. BRT202409A"
+                      className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white focus:ring-1 focus:ring-brand-600 focus:outline-none font-mono"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">
+                      Cross-referenced against brand regex
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Quick Single Photo Mode */}

@@ -1,16 +1,20 @@
-// POST /api/extract-direct: Accepts images as base64 in a JSON body, runs Gemini Vision OCR, and saves directly to Supabase.
+// POST /api/extract-direct: Accepts images as base64 in a JSON body, runs Gemini Vision OCR, evaluates anti-counterfeit checks, and saves directly to Supabase.
 import { NextResponse } from "next/server";
 import { extractWithGemini, type ImageInput } from "@/core/geminiExtractor";
 import { getSession } from "@/lib/auth";
 import { supabaseAdmin, getOrCreateDefaultUserId } from "@/lib/supabaseServer";
+import { evaluateAntiCounterfeit, type MasterTemplate, DEFAULT_MASTER_TEMPLATES } from "@/core/antiCounterfeit";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { images, title, scanType } = body as {
+    const { images, title, scanType, barcode, batchNumber, geoLocation } = body as {
       images: { panel: string; base64: string; mimeType: string }[];
       title?: string;
       scanType?: string;
+      barcode?: string;
+      batchNumber?: string;
+      geoLocation?: { city?: string; state?: string; lat?: number; lng?: number };
     };
 
     if (!images || !Array.isArray(images) || images.length === 0) {
@@ -29,6 +33,31 @@ export async function POST(req: Request) {
     }));
 
     const extraction = await extractWithGemini(imageInputs, title || undefined);
+
+    // Run Anti-Counterfeit & Fake Product Detection
+    let templates: MasterTemplate[] = DEFAULT_MASTER_TEMPLATES;
+    try {
+      const admin = supabaseAdmin();
+      const { data: dbTemplates } = await admin.from("product_master_templates").select("*");
+      if (dbTemplates && dbTemplates.length > 0) {
+        templates = dbTemplates.map((t) => ({
+          id: t.id,
+          brand_name: t.brand_name,
+          product_name: t.product_name,
+          official_barcode: t.official_barcode,
+          expected_fssai_license: t.expected_fssai_license,
+          allowed_batch_regex: t.allowed_batch_regex,
+          authorized_cities: t.authorized_cities,
+          golden_extracted_fields: t.golden_extracted_fields || {},
+        }));
+      }
+    } catch {}
+
+    const antiCounterfeitAssessment = evaluateAntiCounterfeit(
+      extraction.fields,
+      { barcode, batchNumber, geoLocation },
+      templates
+    );
 
     let scanId: string | null = null;
 
@@ -114,6 +143,19 @@ export async function POST(req: Request) {
 
             await admin.from("extracted_fields").insert(fieldRows);
           }
+
+          // Save Anti-Counterfeit Detection Log in Supabase
+          try {
+            await admin.from("counterfeit_detection_logs").insert({
+              scan_id: scanRow.id,
+              authenticity_score: antiCounterfeitAssessment.authenticity_score,
+              verdict: antiCounterfeitAssessment.verdict,
+              flags: antiCounterfeitAssessment.flags,
+              geo_location: geoLocation || null,
+            });
+          } catch (logErr) {
+            console.warn("Counterfeit detection log insert warning:", logErr);
+          }
         }
       }
     } catch (dbErr) {
@@ -127,6 +169,7 @@ export async function POST(req: Request) {
       product_summary: extraction.product_summary,
       fields: extraction.fields,
       fields_count: extraction.fields.length,
+      anti_counterfeit: antiCounterfeitAssessment,
       message: extraction.message,
     });
   } catch (err: any) {
