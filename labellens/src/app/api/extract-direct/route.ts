@@ -47,6 +47,7 @@ export async function POST(req: Request) {
           official_barcode: t.official_barcode,
           expected_fssai_license: t.expected_fssai_license,
           allowed_batch_regex: t.allowed_batch_regex,
+          authorized_states: t.authorized_states,
           authorized_cities: t.authorized_cities,
           golden_extracted_fields: t.golden_extracted_fields || {},
         }));

@@ -68,6 +68,17 @@ describe("Anti-Counterfeit Fraud Detection Engine", () => {
     expect(geoFlag?.severity).toBe("HIGH");
   });
 
+  it("verifies authorized states and flags interstate diversion", () => {
+    // Authorized state: Karnataka
+    expect(verifyGeoRouting({ state: "Karnataka" }, britanniaTemplate)).toBeNull();
+
+    // Unauthorized state: Bihar
+    const stateFlag = verifyGeoRouting({ state: "Bihar" }, britanniaTemplate);
+    expect(stateFlag?.code).toBe("GEO_ROUTING_DIVERSION");
+    expect(stateFlag?.severity).toBe("HIGH");
+    expect(stateFlag?.description).toContain("outside the authorized state distribution network");
+  });
+
   it("evaluates complete authentic product scan with high authenticity score", () => {
     const fields = [
       { key: "brand", value: "Britannia" },
@@ -108,3 +119,4 @@ describe("Anti-Counterfeit Fraud Detection Engine", () => {
     expect(assessment.flags.some((f) => f.code === "FSSAI_LICENSE_MISMATCH")).toBe(true);
   });
 });
+

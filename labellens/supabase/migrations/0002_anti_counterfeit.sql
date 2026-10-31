@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS product_master_templates (
   official_barcode TEXT,
   expected_fssai_license TEXT, -- 14-digit statutory license string
   allowed_batch_regex TEXT,     -- e.g. '^[A-Z]{2}[0-9]{4,6}$'
-  authorized_cities JSONB DEFAULT '[]'::jsonb, -- e.g. ["Mumbai", "Delhi", "Bangalore"] for geo-routing verification
+  authorized_states JSONB DEFAULT '[]'::jsonb, -- e.g. ["Karnataka", "Maharashtra"] for state-level SKU distribution
+  authorized_cities JSONB DEFAULT '[]'::jsonb, -- e.g. ["Mumbai", "Delhi", "Bengaluru"] for geo-routing verification
   golden_extracted_fields JSONB NOT NULL DEFAULT '{}'::jsonb, -- Canonical verified ingredients, net_quantity, etc.
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -33,6 +34,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS product_master_barcode_idx
 
 CREATE INDEX IF NOT EXISTS product_master_brand_name_idx 
   ON product_master_templates (lower(brand_name), lower(product_name));
+
+-- Ensure column exists if table was previously created
+ALTER TABLE product_master_templates ADD COLUMN IF NOT EXISTS authorized_states JSONB DEFAULT '[]'::jsonb;
 
 -- 3. COUNTERFEIT DETECTION LOGS TABLE
 CREATE TABLE IF NOT EXISTS counterfeit_detection_logs (
@@ -103,6 +107,7 @@ INSERT INTO product_master_templates (
   official_barcode,
   expected_fssai_license,
   allowed_batch_regex,
+  authorized_states,
   authorized_cities,
   golden_extracted_fields
 ) VALUES 
@@ -112,6 +117,7 @@ INSERT INTO product_master_templates (
   '8901063142213',
   '10015043001129',
   '^(BRT|NT)[0-9]{6}[A-Z]?$',
+  '["Maharashtra", "Delhi", "Karnataka", "Tamil Nadu", "West Bengal", "Telangana"]'::jsonb,
   '["Mumbai", "Delhi", "Bengaluru", "Chennai", "Kolkata", "Hyderabad", "Pune"]'::jsonb,
   '{
     "product_name": "NutriChoice Digestive High Fibre",
@@ -132,6 +138,7 @@ INSERT INTO product_master_templates (
   '8901491101991',
   '10014064000435',
   '^(PEP|LAY)[0-9]{5,7}$',
+  '["Delhi", "Maharashtra", "West Bengal", "Karnataka", "Rajasthan", "Uttar Pradesh", "Gujarat"]'::jsonb,
   '["Delhi", "Mumbai", "Kolkata", "Bengaluru", "Jaipur", "Lucknow", "Ahmedabad"]'::jsonb,
   '{
     "product_name": "Lay''s India''s Magic Masala Potato Chips",
@@ -147,3 +154,4 @@ INSERT INTO product_master_templates (
   }'::jsonb
 )
 ON CONFLICT (official_barcode) DO NOTHING;
+

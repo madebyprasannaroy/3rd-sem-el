@@ -22,9 +22,10 @@ export interface MasterTemplate {
   manufacturer_id?: string;
   brand_name: string;
   product_name: string;
-  official_barcode?: string;
-  expected_fssai_license?: string;
-  allowed_batch_regex?: string;
+  official_barcode?: string | null;
+  expected_fssai_license?: string | null;
+  allowed_batch_regex?: string | null;
+  authorized_states?: string[];
   authorized_cities?: string[];
   golden_extracted_fields: Record<string, string | null>;
 }
@@ -65,6 +66,7 @@ export const DEFAULT_MASTER_TEMPLATES: MasterTemplate[] = [
     official_barcode: "8901063142213",
     expected_fssai_license: "10015043001129",
     allowed_batch_regex: "^(BRT|NT)[0-9]{6}[A-Z]?$",
+    authorized_states: ["Maharashtra", "Delhi", "Karnataka", "Tamil Nadu", "West Bengal", "Telangana"],
     authorized_cities: ["Mumbai", "Delhi", "Bengaluru", "Chennai", "Kolkata", "Hyderabad", "Pune"],
     golden_extracted_fields: {
       product_name: "NutriChoice Digestive High Fibre",
@@ -87,6 +89,7 @@ export const DEFAULT_MASTER_TEMPLATES: MasterTemplate[] = [
     official_barcode: "8901491101991",
     expected_fssai_license: "10014064000435",
     allowed_batch_regex: "^(PEP|LAY)[0-9]{5,7}$",
+    authorized_states: ["Delhi", "Maharashtra", "West Bengal", "Karnataka", "Rajasthan", "Uttar Pradesh", "Gujarat"],
     authorized_cities: ["Delhi", "Mumbai", "Kolkata", "Bengaluru", "Jaipur", "Lucknow", "Ahmedabad"],
     golden_extracted_fields: {
       product_name: "Lay's India's Magic Masala Potato Chips",
@@ -253,29 +256,59 @@ export function verifyBatchNumber(
 
 /**
  * Supply-chain geo-routing verification:
- * Checks if the SKU scanned in a given city matches authorized regional distribution zones.
+ * Checks if the SKU scanned in a given city/state matches authorized regional distribution zones.
  */
 export function verifyGeoRouting(
-  scanCity: string | null | undefined,
+  scanLocation: string | { city?: string; state?: string } | null | undefined,
   template?: MasterTemplate
 ): AnomalyFlag | null {
-  if (!scanCity || scanCity.trim() === "" || !template?.authorized_cities || template.authorized_cities.length === 0) {
+  if (!scanLocation || !template) {
     return null;
   }
 
-  const cleanCity = scanCity.trim().toLowerCase();
-  const isAuthorized = template.authorized_cities.some(
-    (c) => c.toLowerCase() === cleanCity || cleanCity.includes(c.toLowerCase()) || c.toLowerCase().includes(cleanCity)
-  );
+  const scanCity = typeof scanLocation === "string" ? scanLocation : scanLocation.city;
+  const scanState = typeof scanLocation === "object" ? scanLocation.state : undefined;
 
-  if (!isAuthorized) {
-    return {
-      code: "GEO_ROUTING_DIVERSION",
-      severity: "HIGH",
-      description: `Product scanned in '${scanCity}', which is outside the authorized regional distribution network for this batch/SKU. Potential grey-market diversion or cloned packaging.`,
-      expected: `Authorized regional zones: ${template.authorized_cities.join(", ")}`,
-      detected: `Scanned location: ${scanCity}`,
-    };
+  const authCities = template.authorized_cities || [];
+  const authStates = template.authorized_states || [];
+
+  if (authCities.length === 0 && authStates.length === 0) {
+    return null;
+  }
+
+  // 1. If scan state is provided and authorized_states is defined, check state authorization
+  if (scanState && scanState.trim() && authStates.length > 0) {
+    const cleanState = scanState.trim().toLowerCase();
+    const isStateAuth = authStates.some(
+      (s) => s.toLowerCase() === cleanState || cleanState.includes(s.toLowerCase()) || s.toLowerCase().includes(cleanState)
+    );
+    if (!isStateAuth) {
+      return {
+        code: "GEO_ROUTING_DIVERSION",
+        severity: "HIGH",
+        description: `Product scanned in state '${scanState}', which is outside the authorized state distribution network (${authStates.join(", ")}) for this SKU. Potential grey-market diversion or cloned packaging.`,
+        expected: `Authorized states: ${authStates.join(", ")}`,
+        detected: `Scanned state: ${scanState}`,
+      };
+    }
+  }
+
+  // 2. If scan city is provided and authorized_cities is defined, check city authorization
+  if (scanCity && scanCity.trim() && authCities.length > 0) {
+    const cleanCity = scanCity.trim().toLowerCase();
+    const isCityAuth = authCities.some(
+      (c) => c.toLowerCase() === cleanCity || cleanCity.includes(c.toLowerCase()) || c.toLowerCase().includes(cleanCity)
+    );
+    // If state wasn't provided or not checked, flag unauthorized city
+    if (!isCityAuth && (!scanState || !authStates.length)) {
+      return {
+        code: "GEO_ROUTING_DIVERSION",
+        severity: "HIGH",
+        description: `Product scanned in '${scanCity}', which is outside the authorized regional distribution network for this batch/SKU. Potential grey-market diversion or cloned packaging.`,
+        expected: `Authorized regional zones: ${authCities.join(", ")}`,
+        detected: `Scanned location: ${scanCity}`,
+      };
+    }
   }
 
   return null;
@@ -458,15 +491,16 @@ export function evaluateAntiCounterfeit(
   }
 
   // E. Geo-Routing & Anti-Diversion Check
-  if (context.geoLocation?.city) {
-    const geoFlag = verifyGeoRouting(context.geoLocation.city, matchedTemplate);
+  if (context.geoLocation?.city || context.geoLocation?.state) {
+    const geoFlag = verifyGeoRouting(context.geoLocation, matchedTemplate);
+    const locLabel = [context.geoLocation.city, context.geoLocation.state].filter(Boolean).join(", ");
     if (geoFlag) {
       flags.push(geoFlag);
       geoStatus = "warning";
       geoDetails = geoFlag.description;
     } else {
       geoStatus = "passed";
-      geoDetails = `Scan location (${context.geoLocation.city}) matches authorized regional distribution network.`;
+      geoDetails = `Scan location (${locLabel}) matches authorized regional distribution network.`;
     }
   }
 
@@ -535,3 +569,4 @@ export function evaluateAntiCounterfeit(
     },
   };
 }
+
