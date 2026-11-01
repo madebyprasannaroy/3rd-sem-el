@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Camera,
@@ -73,6 +73,19 @@ export default function NewScan() {
   const [busy, setBusy] = useState(false);
   const [scanStage, setScanStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Auto-detect scanType from URL query params (e.g. ?type=draft_label from Manufacturer portal)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const type = params.get("type");
+      if (type === "draft_label" || type === "draft" || type === "manufacturer") {
+        setScanType("draft_label");
+      } else if (type === "product") {
+        setScanType("product");
+      }
+    }
+  }, []);
 
   function handleFileSelect(key: string, file: File | undefined) {
     if (!file) return;
@@ -237,19 +250,28 @@ export default function NewScan() {
             <div className="flex items-center justify-between gap-3 mb-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-clay/20 text-peach border border-clay/40">
                 <Sparkles className="w-3.5 h-3.5 text-clay" />
-                <span>Multimodal Vision OCR • India Edition</span>
+                <span>
+                  {scanType === "draft_label"
+                    ? "Pre-Print Pre-Press Audit • Legal Metrology 1:1 Scale Proof"
+                    : "Multimodal Vision OCR • India Edition"}
+                </span>
               </span>
               <span className="text-[11px] text-eucalyptus uppercase tracking-wider font-semibold hidden sm:inline">
-                FSSAI & Legal Metrology
+                {scanType === "draft_label"
+                  ? "Pre-Cylinder Engraving Proof"
+                  : "FSSAI & Legal Metrology"}
               </span>
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ivory">
-              Capture Package for Compliance Scan
+              {scanType === "draft_label"
+                ? "Pre-Print Artwork Audit & Proof Verification"
+                : "Capture Package for Compliance Scan"}
             </h1>
             <p className="text-xs sm:text-sm text-eucalyptus/90 mt-1.5 max-w-2xl leading-relaxed">
-              Snap clear, flat photos of the package panels. LabelLens extracts mandatory regulatory declarations,
-              verifies barcode & batch numbers, and cross-checks nutritional standards.
+              {scanType === "draft_label"
+                ? "Upload flat pre-press digital artwork, packaging mechanicals, or proofs. Evaluates true 1:1 scale font heights (Legal Metrology Rules 2011), veg/non-veg surface area ratios, and statutory allergen warnings before plates and cylinders go to production."
+                : "Snap clear, flat photos of the package panels. LabelLens extracts mandatory regulatory declarations, verifies barcode & batch numbers, and cross-checks nutritional standards."}
             </p>
 
             {/* Mode Switcher Tabs */}
@@ -314,6 +336,20 @@ export default function NewScan() {
                 </select>
               </div>
             </div>
+
+            {scanType === "draft_label" && (
+              <div className="rounded-xl border border-blue-300 bg-blue-50/80 p-3.5 text-xs text-blue-950 flex items-center justify-between gap-3 shadow-sm">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse shrink-0" />
+                  <span>
+                    <strong>1:1 Flat Artwork Scale Mode Active:</strong> Calibrated for pre-press mechanical proofs, digital PDF/PNG layouts, and flat mockups. Font heights (Legal Metrology Rules 2011) and display proportions are checked directly against artwork specifications without camera perspective distortion.
+                  </span>
+                </div>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded bg-blue-600 text-white shrink-0">
+                  Pre-Print Audit
+                </span>
+              </div>
+            )}
 
             {/* Anti-Counterfeit & Supply Chain Routing Options (Collapsible) */}
             <div className="rounded-2xl border-2 border-eucalyptus bg-pistachio/45 p-4 space-y-3 transition-all shadow-sm">

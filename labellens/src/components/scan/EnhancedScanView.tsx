@@ -39,6 +39,7 @@ interface EnhancedScanViewProps {
   initialFields: Field[];
   photos: Photo[];
   canEdit: boolean;
+  initialScanType?: string | null;
 }
 
 export default function EnhancedScanView({
@@ -48,7 +49,9 @@ export default function EnhancedScanView({
   initialFields,
   photos,
   canEdit,
+  initialScanType,
 }: EnhancedScanViewProps) {
+  const [scanType, setScanType] = useState<string>(initialScanType || "product");
   const [title, setTitle] = useState(initialTitle || "New Package Scan");
   const [status, setStatus] = useState(initialStatus);
   const [fields, setFields] = useState<Field[]>(initialFields);
@@ -69,6 +72,9 @@ export default function EnhancedScanView({
       const saved = localStorage.getItem(`labellens_scan_${scanId}`);
       if (saved) {
         const parsed = JSON.parse(saved);
+        if (parsed.scanType) {
+          setScanType(parsed.scanType);
+        }
         if (parsed.title) {
           setTitle(parsed.title);
         } else if (parsed.extraction?.product_summary?.product_name) {
@@ -326,6 +332,15 @@ export default function EnhancedScanView({
             >
               {status.toUpperCase()}
             </span>
+            {scanType === "draft_label" ? (
+              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full border bg-purple-100 text-purple-900 border-purple-300">
+                📐 Pre-Print Proof (1:1 Artwork)
+              </span>
+            ) : (
+              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full border bg-slate-100 text-slate-700 border-slate-300">
+                Commercial Pack Scan
+              </span>
+            )}
           </div>
           <p className="text-xs text-slate-500 mt-1">
             {canEdit

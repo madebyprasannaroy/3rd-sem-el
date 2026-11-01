@@ -17,14 +17,14 @@ export default async function ScanPage({ params }: { params: { id: string } }) {
   }
 
   const sb = session.isDemo ? supabaseAdmin() : supabaseUser();
-  let scan: { id: string; title: string | null; status: string; owner_id: string } | null = null;
+  let scan: { id: string; title: string | null; status: string; owner_id: string; scan_type?: string } | null = null;
   let fields: Field[] = [];
   let photos: Photo[] = [];
 
   try {
     const { data: scanData } = await sb
       .from("scans")
-      .select("id,title,status,owner_id")
+      .select("id,title,status,owner_id,scan_type")
       .eq("id", params.id)
       .single();
 
@@ -101,6 +101,7 @@ export default async function ScanPage({ params }: { params: { id: string } }) {
           initialFields={fields}
           photos={photos}
           canEdit={canEdit}
+          initialScanType={scan.scan_type}
         />
       </main>
     </div>

@@ -11,6 +11,7 @@ export default function ScanView(props: {
   initialFields: Field[];
   photos: Photo[];
   canEdit: boolean;
+  initialScanType?: string | null;
 }) {
   return <EnhancedScanView {...props} />;
 }

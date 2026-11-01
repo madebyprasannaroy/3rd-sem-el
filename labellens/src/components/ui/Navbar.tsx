@@ -84,7 +84,7 @@ export default function Navbar({ role = "customer", userEmail }: NavbarProps) {
         {/* Right action controls */}
         <div className="flex items-center gap-3">
           <Link
-            href="/scan/new"
+            href={role === "manufacturer" ? "/scan/new?type=draft_label" : "/scan/new"}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-lg bg-brand-700 hover:bg-brand-800 text-white shadow-sm transition-all"
           >
             <QrCode className="w-4 h-4" />

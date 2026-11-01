@@ -111,7 +111,7 @@ export default function ManufacturerDashboard({ initialScans }: { initialScans: 
 
         <div className="flex flex-wrap items-center gap-2.5">
           <Link
-            href="/scan/new"
+            href="/scan/new?type=draft_label"
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-md transition-all"
           >
             <UploadCloud className="w-4 h-4" />
