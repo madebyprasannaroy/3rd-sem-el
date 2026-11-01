@@ -515,9 +515,35 @@ export default function EnhancedScanView({
             </div>
 
             {fields.length === 0 ? (
-              <div className="p-8 text-center text-slate-500">
-                <span className="inline-block w-3 h-3 rounded-full bg-blue-500 animate-pulse mr-2" />
-                No fields extracted for this package.
+              <div className="p-6 sm:p-8 text-center space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
+                  <AlertTriangle className="w-6 h-6 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    {scanType === "draft_label"
+                      ? "Critical Pre-Print Blocker: No Statutory Text Detected"
+                      : "No Packaging Declarations Detected"}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                    {scanType === "draft_label"
+                      ? "Gemini Vision OCR found no readable typography or statutory text on this artwork proof. Printing cylinders/plates cannot be engraved without mandatory FSSAI & Legal Metrology declarations."
+                      : "The vision model did not detect any readable mandatory declaration labels in the uploaded images."}
+                  </p>
+                </div>
+
+                {scanType === "draft_label" && (
+                  <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-4 text-left text-xs space-y-2 max-w-lg mx-auto">
+                    <span className="font-bold text-amber-900 flex items-center gap-1.5">
+                      <span>🛠️ Pre-Press Checklist for Designers:</span>
+                    </span>
+                    <ul className="list-disc pl-4 space-y-1 text-amber-800 text-[11px] leading-relaxed">
+                      <li><strong>Hidden Typography Layer:</strong> Check if your typography or statutory text layer was hidden in Adobe Illustrator / InDesign prior to PDF export.</li>
+                      <li><strong>Blank Substrate or Dieline:</strong> If this is a blank cutting guide / dieline proof, embed the copy before running compliance audits.</li>
+                      <li><strong>Online Overprint Fields:</strong> Even if MRP, Batch No, and MFD are printed dynamically via thermal transfer (TTO), the artwork proof must include statutory static headers (e.g. <em>&quot;MRP Rs. (incl. of all taxes):&quot;</em>).</li>
+                    </ul>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
