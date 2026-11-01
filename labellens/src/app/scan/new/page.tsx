@@ -2,7 +2,21 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Camera, Upload, ArrowLeft, CheckCircle2, AlertCircle, Sparkles, Trash2, Layers, Scan, ShieldCheck, MapPin, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Camera,
+  Upload,
+  ArrowLeft,
+  CheckCircle2,
+  AlertCircle,
+  Sparkles,
+  Trash2,
+  Layers,
+  Scan,
+  ShieldCheck,
+  MapPin,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import Navbar from "@/components/ui/Navbar";
 
 const PANELS = [
@@ -38,7 +52,6 @@ function fileToBase64(file: File): Promise<string> {
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
-      // Remove data URL prefix: "data:image/jpeg;base64,..."
       const base64 = result.split(",")[1];
       resolve(base64);
     };
@@ -87,10 +100,9 @@ export default function NewScan() {
   async function submit() {
     setBusy(true);
     setError(null);
-    setScanStage("Preparing images for upload...");
+    setScanStage("Preparing packaging images...");
 
     try {
-      // Determine which keys have files
       const activeKeys = mode === "quick" ? ["full_pack"] : PANELS.map((p) => p.key);
       const filledEntries: { panel: string; file: File }[] = [];
       for (const key of activeKeys) {
@@ -99,13 +111,12 @@ export default function NewScan() {
       }
 
       if (filledEntries.length === 0) {
-        throw new Error("Please attach at least 1 packaging photo.");
+        throw new Error("Please attach at least 1 packaging photo to start scanning.");
       }
 
       const scanId = `scan-${Date.now()}`;
 
-      // Convert all files to base64
-      setScanStage("Encoding images...");
+      setScanStage("Encoding images for OCR inspection...");
       const imagePayloads: { panel: string; base64: string; mimeType: string }[] = [];
       for (const entry of filledEntries) {
         const base64 = await fileToBase64(entry.file);
@@ -116,7 +127,6 @@ export default function NewScan() {
         });
       }
 
-      // Also save preview URLs to localStorage for the review page
       const photoData: { panel: string; dataUrl: string }[] = [];
       for (const entry of filledEntries) {
         const key = entry.panel;
@@ -153,7 +163,7 @@ export default function NewScan() {
         throw new Error(rawError);
       }
 
-      setScanStage("Preparing scan review...");
+      setScanStage("Compiling verification dossier...");
 
       const finalScanId = extractionData?.scan_id || scanId;
 
@@ -162,7 +172,6 @@ export default function NewScan() {
         extractionData.product_summary?.product_name ||
         "New Package Scan";
 
-      // Store genuine extracted fields, anti-counterfeit evaluation, and image data in localStorage
       const scanData = {
         id: finalScanId,
         title: resolvedTitle,
@@ -181,7 +190,6 @@ export default function NewScan() {
 
       localStorage.setItem(`labellens_scan_${finalScanId}`, JSON.stringify(scanData));
 
-      // Also store in a scan list for the dashboard
       const scanList = JSON.parse(localStorage.getItem("labellens_scan_list") || "[]");
       scanList.unshift({
         id: finalScanId,
@@ -193,8 +201,6 @@ export default function NewScan() {
       localStorage.setItem("labellens_scan_list", JSON.stringify(scanList));
 
       await new Promise((r) => setTimeout(r, 400));
-
-      // Navigate to scan review screen
       window.location.href = `/scan/${finalScanId}`;
     } catch (e) {
       setError((e as Error).message);
@@ -206,88 +212,102 @@ export default function NewScan() {
   const selectedCount = Object.values(files).filter(Boolean).length;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-slate-950/40 text-slate-100 flex flex-col relative font-tenor">
       <Navbar />
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 w-full flex-1">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 w-full flex-1 relative z-10">
         {/* Navigation Breadcrumb */}
         <div className="mb-6">
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-brand-700 transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-eucalyptus hover:text-clay transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Back to Dashboard</span>
           </Link>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          {/* Card Header */}
-          <div className="p-6 bg-slate-900 text-white border-b border-slate-800">
-            <div className="flex items-center gap-2 text-xs font-medium text-emerald-400 mb-1">
-              <Sparkles className="w-4 h-4" />
-              <span>Unified Gemini Vision Packaging Extraction</span>
+        {/* Main Card Wrapper — Ivory surface with Clay & Eucalyptus accents */}
+        <div className="rounded-3xl border-2 border-eucalyptus/60 bg-ivory text-slate-900 shadow-2xl overflow-hidden ring-1 ring-clay/30">
+          {/* Card Header — Slate-950 with Clay top border and Inspector-aligned accents */}
+          <div className="p-6 sm:p-8 bg-slate-950 text-ivory border-b-2 border-eucalyptus relative overflow-hidden">
+            {/* Top decorative gradient bar */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-clay via-peach to-eucalyptus" />
+
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-clay/20 text-peach border border-clay/40">
+                <Sparkles className="w-3.5 h-3.5 text-clay" />
+                <span>Multimodal Vision OCR • India Edition</span>
+              </span>
+              <span className="text-[11px] text-eucalyptus uppercase tracking-wider font-semibold hidden sm:inline">
+                FSSAI & Legal Metrology
+              </span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold">Capture Package for Compliance Scan</h1>
-            <p className="text-xs sm:text-sm text-slate-300 mt-1">
-              For highest extraction accuracy under Legal Metrology & FSSAI standards, snap clear flat photos of the 4 panels.
+
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ivory">
+              Capture Package for Compliance Scan
+            </h1>
+            <p className="text-xs sm:text-sm text-eucalyptus/90 mt-1.5 max-w-2xl leading-relaxed">
+              Snap clear, flat photos of the package panels. LabelLens extracts mandatory regulatory declarations,
+              verifies barcode & batch numbers, and cross-checks nutritional standards.
             </p>
 
             {/* Mode Switcher Tabs */}
-            <div className="mt-5 flex gap-2 border-b border-slate-800 pb-1">
+            <div className="mt-6 flex flex-wrap gap-2.5 border-t border-slate-800 pt-4">
               <button
                 type="button"
                 onClick={() => setMode("quick")}
-                className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
+                className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
                   mode === "quick"
-                    ? "bg-brand-700 text-white shadow-md ring-1 ring-brand-500"
-                    : "bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white"
+                    ? "bg-clay text-slate-950 shadow-md shadow-clay/20 ring-2 ring-peach/60"
+                    : "bg-slate-900/80 text-eucalyptus hover:bg-slate-800 hover:text-ivory border border-eucalyptus/30"
                 }`}
               >
-                <Scan className="w-4 h-4 text-emerald-400" />
+                <Scan className="w-4 h-4 text-slate-950" />
                 <span>Quick Single Photo</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setMode("multi")}
-                className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
+                className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
                   mode === "multi"
-                    ? "bg-brand-700 text-white shadow-md ring-1 ring-brand-500"
-                    : "bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white"
+                    ? "bg-clay text-slate-950 shadow-md shadow-clay/20 ring-2 ring-peach/60"
+                    : "bg-slate-900/80 text-eucalyptus hover:bg-slate-800 hover:text-ivory border border-eucalyptus/30"
                 }`}
               >
-                <Layers className="w-4 h-4 text-blue-400" />
-                <span>Multi-Panel (4 Panels)</span>
+                <Layers className="w-4 h-4 text-slate-950" />
+                <span>Multi-Panel Breakdown (4 Panels)</span>
               </button>
             </div>
           </div>
 
-          <div className="p-6 space-y-6">
-            {/* Title & Scan Type */}
+          {/* Form Content Area */}
+          <div className="p-6 sm:p-8 space-y-6">
+            {/* Title & Classification Row */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="sm:col-span-2">
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-slate-800 mb-1.5 uppercase tracking-wider">
                   Product Name / Title (Optional)
                 </label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Lay's India's Magic Masala or Digestive Biscuits"
+                  placeholder="e.g. Lay's India's Magic Masala or NutriChoice Digestive"
                   maxLength={120}
-                  className="w-full text-sm border border-slate-300 rounded-lg p-2.5 bg-slate-50 focus:ring-2 focus:ring-brand-600 focus:bg-white focus:outline-none"
+                  className="w-full text-sm border-2 border-eucalyptus rounded-xl p-3 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-clay focus:border-clay focus:outline-none transition-all shadow-sm"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-slate-800 mb-1.5 uppercase tracking-wider">
                   Scan Classification
                 </label>
                 <select
                   value={scanType}
                   onChange={(e) => setScanType(e.target.value as any)}
-                  className="w-full text-sm border border-slate-300 rounded-lg p-2.5 bg-slate-50 focus:ring-2 focus:ring-brand-600 focus:outline-none font-medium"
+                  className="w-full text-sm border-2 border-eucalyptus rounded-xl p-3 bg-white text-slate-900 focus:ring-2 focus:ring-clay focus:border-clay focus:outline-none font-semibold transition-all shadow-sm"
                 >
                   <option value="product">Consumer Pack (Commercial)</option>
                   <option value="draft_label">Pre-Print Draft (Manufacturer)</option>
@@ -296,43 +316,43 @@ export default function NewScan() {
             </div>
 
             {/* Anti-Counterfeit & Supply Chain Routing Options (Collapsible) */}
-            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-3">
+            <div className="rounded-2xl border-2 border-eucalyptus bg-pistachio/45 p-4 space-y-3 transition-all shadow-sm">
               <button
                 type="button"
                 onClick={() => setShowAntiCounterfeitOptions(!showAntiCounterfeitOptions)}
-                className="w-full flex items-center justify-between text-left text-xs font-bold text-slate-800"
+                className="w-full flex items-center justify-between text-left text-xs font-bold text-slate-900 hover:text-clay transition-colors"
               >
                 <span className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-brand-700" />
+                  <ShieldCheck className="w-4 h-4 text-clay" />
                   <span>Anti-Counterfeit & Geo-Routing Parameters (Optional)</span>
                 </span>
-                <span className="text-slate-500 font-normal text-[11px] flex items-center gap-1">
+                <span className="text-slate-600 font-medium text-[11px] flex items-center gap-1">
                   {showAntiCounterfeitOptions ? "Hide" : "Configure City / Barcode / Batch"}
                   {showAntiCounterfeitOptions ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                 </span>
               </button>
 
               {showAntiCounterfeitOptions && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-200/60 animate-in fade-in">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-eucalyptus">
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-slate-500" />
+                    <label className="block text-[11px] font-bold text-slate-800 mb-1 flex items-center gap-1">
+                      <MapPin className="w-3 h-3 text-slate-600" />
                       <span>Scan Location / City</span>
                     </label>
                     <input
                       type="text"
                       value={scanCity}
                       onChange={(e) => setScanCity(e.target.value)}
-                      placeholder="e.g. Bengaluru, Mumbai, Delhi, Patna"
-                      className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white focus:ring-1 focus:ring-brand-600 focus:outline-none"
+                      placeholder="e.g. Bengaluru, Mumbai, Delhi"
+                      className="w-full text-xs border border-eucalyptus rounded-lg p-2.5 bg-white text-slate-900 focus:ring-1 focus:ring-clay focus:border-clay focus:outline-none"
                     />
-                    <span className="text-[10px] text-slate-400 mt-0.5 block">
+                    <span className="text-[10px] text-slate-500 mt-1 block">
                       Detects gray-market geo diversion
                     </span>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    <label className="block text-[11px] font-bold text-slate-800 mb-1">
                       Physical Barcode (EAN-13)
                     </label>
                     <input
@@ -340,15 +360,15 @@ export default function NewScan() {
                       value={manualBarcode}
                       onChange={(e) => setManualBarcode(e.target.value)}
                       placeholder="e.g. 8901063142213"
-                      className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white focus:ring-1 focus:ring-brand-600 focus:outline-none font-mono"
+                      className="w-full text-xs border border-eucalyptus rounded-lg p-2.5 bg-white text-slate-900 focus:ring-1 focus:ring-clay focus:border-clay focus:outline-none font-mono"
                     />
-                    <span className="text-[10px] text-slate-400 mt-0.5 block">
+                    <span className="text-[10px] text-slate-500 mt-1 block">
                       Optional if visible on photos
                     </span>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    <label className="block text-[11px] font-bold text-slate-800 mb-1">
                       Inkjet Batch Number
                     </label>
                     <input
@@ -356,9 +376,9 @@ export default function NewScan() {
                       value={manualBatch}
                       onChange={(e) => setManualBatch(e.target.value)}
                       placeholder="e.g. BRT202409A"
-                      className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white focus:ring-1 focus:ring-brand-600 focus:outline-none font-mono"
+                      className="w-full text-xs border border-eucalyptus rounded-lg p-2.5 bg-white text-slate-900 focus:ring-1 focus:ring-clay focus:border-clay focus:outline-none font-mono"
                     />
-                    <span className="text-[10px] text-slate-400 mt-0.5 block">
+                    <span className="text-[10px] text-slate-500 mt-1 block">
                       Cross-referenced against brand regex
                     </span>
                   </div>
@@ -372,12 +392,12 @@ export default function NewScan() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-sm font-bold text-slate-900">Take or Upload Full Pack Photo</h3>
-                    <p className="text-xs text-slate-500">
-                      Gemini Vision automatically reads front identity, ingredients, nutrition table, and declarations from a single image.
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      Gemini Vision automatically reads front identity, ingredients, nutrition table, and declarations from a single photo.
                     </p>
                   </div>
                   {files["full_pack"] && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full shrink-0">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-950 bg-clay px-3 py-1 rounded-full shrink-0 shadow-sm">
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       Image Attached
                     </span>
@@ -385,7 +405,7 @@ export default function NewScan() {
                 </div>
 
                 {previews["full_pack"] ? (
-                  <div className="relative aspect-[16/9] w-full rounded-2xl overflow-hidden bg-slate-900 border border-slate-200 shadow-inner max-h-[380px]">
+                  <div className="relative aspect-[16/9] w-full rounded-2xl overflow-hidden bg-slate-950 border-2 border-eucalyptus shadow-inner max-h-[380px]">
                     <img src={previews["full_pack"]} alt="Pack photo" className="w-full h-full object-contain" />
                     <button
                       type="button"
@@ -397,11 +417,11 @@ export default function NewScan() {
                     </button>
                   </div>
                 ) : (
-                  <label className="flex flex-col items-center justify-center p-8 sm:p-12 border-2 border-dashed border-slate-300 hover:border-brand-500 rounded-2xl cursor-pointer bg-slate-50/50 hover:bg-brand-50/30 transition-all group">
-                    <div className="w-14 h-14 rounded-2xl bg-white shadow-sm border border-slate-200 flex items-center justify-center text-slate-500 group-hover:text-brand-700 group-hover:border-brand-400 group-hover:scale-105 transition-all mb-3">
+                  <label className="flex flex-col items-center justify-center p-8 sm:p-12 border-2 border-dashed border-eucalyptus hover:border-clay rounded-2xl cursor-pointer bg-white/90 hover:bg-pistachio/50 transition-all group shadow-sm">
+                    <div className="w-14 h-14 rounded-2xl bg-pistachio border border-eucalyptus flex items-center justify-center text-slate-800 group-hover:text-clay group-hover:scale-105 transition-all mb-3 shadow-sm">
                       <Camera className="w-7 h-7" />
                     </div>
-                    <span className="text-sm font-bold text-slate-800 group-hover:text-brand-900">
+                    <span className="text-sm font-bold text-slate-900 group-hover:text-clay transition-colors">
                       Tap to Take Photo or Browse Pack Image
                     </span>
                     <span className="text-xs text-slate-500 mt-1 text-center max-w-sm">
@@ -422,7 +442,7 @@ export default function NewScan() {
             {/* Multi-Panel Capture Cards Mode */}
             {mode === "multi" && (
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-2">
+                <label className="block text-xs font-bold text-slate-800 mb-2 uppercase tracking-wider">
                   Package Panels (Select at least 1 panel to proceed)
                 </label>
 
@@ -434,23 +454,23 @@ export default function NewScan() {
                     return (
                       <div
                         key={p.key}
-                        className={`p-4 rounded-xl border-2 transition-all ${
+                        className={`p-5 rounded-2xl border-2 transition-all duration-200 ${
                           hasFile
-                            ? "border-emerald-500 bg-emerald-50/30"
-                            : "border-dashed border-slate-300 hover:border-slate-400 bg-slate-50/50"
+                            ? "border-clay bg-pistachio/80 shadow-md ring-1 ring-clay/40"
+                            : "border-eucalyptus bg-white hover:bg-pistachio/40 hover:border-clay/60 shadow-sm"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xl">{p.icon}</span>
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-2xl">{p.icon}</span>
                             <div>
                               <h3 className="text-sm font-bold text-slate-900">{p.label}</h3>
-                              <p className="text-[11px] text-slate-500 leading-tight mt-0.5">{p.desc}</p>
+                              <p className="text-[11px] text-slate-600 leading-tight mt-0.5">{p.desc}</p>
                             </div>
                           </div>
 
                           {hasFile && (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full shrink-0">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-950 bg-clay px-2.5 py-0.5 rounded-full shrink-0 shadow-sm">
                               <CheckCircle2 className="w-3.5 h-3.5" />
                               Ready
                             </span>
@@ -458,9 +478,9 @@ export default function NewScan() {
                         </div>
 
                         {/* Preview or Upload control */}
-                        <div className="mt-3">
+                        <div className="mt-3.5">
                           {preview ? (
-                            <div className="relative aspect-[16/9] w-full rounded-lg overflow-hidden bg-slate-900 border border-slate-200">
+                            <div className="relative aspect-[16/9] w-full rounded-xl overflow-hidden bg-slate-950 border border-eucalyptus shadow-sm">
                               <img src={preview} alt={p.label} className="w-full h-full object-cover" />
                               <button
                                 type="button"
@@ -472,12 +492,12 @@ export default function NewScan() {
                               </button>
                             </div>
                           ) : (
-                            <label className="flex flex-col items-center justify-center p-4 border border-dashed border-slate-300 hover:border-brand-500 rounded-lg cursor-pointer bg-white transition-all group">
-                              <div className="flex items-center gap-2 text-slate-500 group-hover:text-brand-700">
+                            <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-eucalyptus hover:border-clay rounded-xl cursor-pointer bg-white/90 hover:bg-pistachio/60 transition-all group">
+                              <div className="flex items-center gap-2 text-slate-700 group-hover:text-clay">
                                 <Camera className="w-5 h-5" />
-                                <span className="text-xs font-semibold">Tap to Take Photo or Browse</span>
+                                <span className="text-xs font-bold">Tap to Take Photo or Browse</span>
                               </div>
-                              <span className="text-[10px] text-slate-400 mt-1">
+                              <span className="text-[10px] text-slate-500 mt-1">
                                 Rear camera on phones • JPG, PNG, WebP up to 10MB
                               </span>
                               <input
@@ -498,23 +518,23 @@ export default function NewScan() {
             )}
 
             {error && (
-              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-                <span>{error}</span>
+              <div className="p-4 rounded-xl bg-peach border-2 border-clay text-slate-900 text-xs flex items-center gap-2.5 shadow-sm">
+                <AlertCircle className="w-4 h-4 shrink-0 text-clay" />
+                <span className="font-semibold">{error}</span>
               </div>
             )}
 
             {/* Scan Progress Stage Indicator */}
             {busy && scanStage && (
-              <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs flex items-center gap-2">
-                <span className="w-4 h-4 border-2 border-blue-300 border-t-blue-700 rounded-full animate-spin shrink-0" />
-                <span className="font-medium">{scanStage}</span>
+              <div className="p-4 rounded-xl bg-pistachio border-2 border-eucalyptus text-slate-900 text-xs flex items-center gap-2.5 shadow-sm">
+                <span className="w-4 h-4 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin shrink-0" />
+                <span className="font-semibold">{scanStage}</span>
               </div>
             )}
 
             {/* Action Bar */}
-            <div className="pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
-              <span className="text-xs text-slate-500">
+            <div className="pt-5 border-t-2 border-eucalyptus/60 flex flex-wrap items-center justify-between gap-3">
+              <span className="text-xs text-slate-700 font-medium">
                 {selectedCount === 0
                   ? "Attach at least 1 packaging photo to scan"
                   : `${selectedCount} panel photo${selectedCount > 1 ? "s" : ""} selected for OCR extraction`}
@@ -524,16 +544,16 @@ export default function NewScan() {
                 type="button"
                 disabled={busy || selectedCount === 0}
                 onClick={submit}
-                className="px-6 py-2.5 rounded-xl bg-brand-700 hover:bg-brand-800 disabled:opacity-50 text-white font-bold text-sm shadow-md transition-all flex items-center gap-2"
+                className="px-7 py-3 rounded-xl bg-clay hover:bg-[#c98f65] active:scale-[0.98] disabled:opacity-50 text-slate-950 font-bold text-sm shadow-lg shadow-clay/25 transition-all flex items-center gap-2.5 border border-clay/60 cursor-pointer"
               >
                 {busy ? (
                   <>
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span className="w-4 h-4 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin" />
                     <span>{scanStage || "Processing..."}</span>
                   </>
                 ) : (
                   <>
-                    <Upload className="w-4 h-4" />
+                    <Upload className="w-4 h-4 text-slate-950" />
                     <span>Upload & Start Extraction ({selectedCount})</span>
                   </>
                 )}

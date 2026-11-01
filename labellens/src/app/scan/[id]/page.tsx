@@ -71,24 +71,24 @@ export default async function ScanPage({ params }: { params: { id: string } }) {
   const canEdit = scan.owner_id === session.userId || session.isDemo === true;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-slate-950/40 text-slate-100 flex flex-col relative font-tenor">
       {/* 1-Click Demo Persona Switcher Bar */}
       <DemoRoleSwitcher currentRole={session.role} isDemo={session.isDemo} />
 
       {/* Main Navbar */}
       <Navbar role={session.role} userEmail={session.email} />
 
-      <main className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 space-y-4">
+      <main className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 space-y-4 relative z-10">
         {/* Breadcrumb Navigation */}
         <div className="flex items-center justify-between">
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-brand-700 transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-eucalyptus hover:text-clay transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Back to Dashboard</span>
           </Link>
-          <div className="text-xs text-slate-400">
+          <div className="text-xs text-eucalyptus/70">
             India Edition • Legal Metrology (Packaged Commodities) Rules 2011
           </div>
         </div>

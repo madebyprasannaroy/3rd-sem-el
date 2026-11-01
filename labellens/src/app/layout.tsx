@@ -1,6 +1,7 @@
 // Root layout: wraps every page with the HTML shell, mobile viewport, and shared styles.
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
+import { ConstellationScene } from "@/components/shaders/ConstellationScene";
 
 export const metadata: Metadata = {
   title: "LabelLens | AI Food Label Intelligence & Legal Compliance (India Edition)",
@@ -23,8 +24,14 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full">
-      <body className="min-h-full flex flex-col font-sans bg-slate-50 text-slate-900">
+    <html lang="en" className="h-full dark">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Tenor+Sans&display=swap" rel="stylesheet" />
+      </head>
+      <body className="min-h-full flex flex-col font-sans relative min-h-screen bg-slate-950 text-slate-100 selection:bg-clay selection:text-slate-950">
+        <ConstellationScene />
         {children}
       </body>
     </html>

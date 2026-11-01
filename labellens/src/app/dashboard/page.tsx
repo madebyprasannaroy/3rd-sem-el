@@ -8,6 +8,7 @@ import Navbar from "@/components/ui/Navbar";
 import CustomerDashboard from "@/components/dashboard/CustomerDashboard";
 import ManufacturerDashboard from "@/components/dashboard/ManufacturerDashboard";
 import InspectorDashboard from "@/components/dashboard/InspectorDashboard";
+import { ConstellationScene } from "@/components/shaders/ConstellationScene";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +65,10 @@ export default async function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="relative min-h-screen bg-slate-950/40 text-slate-100 flex flex-col overflow-hidden">
+      {/* 3D Constellation Shader Background */}
+      <ConstellationScene />
+
       {/* 1-Click Demo Persona Switcher Bar */}
       <DemoRoleSwitcher currentRole={session.role} isDemo={session.isDemo} />
 

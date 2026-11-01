@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Tenor+Sans&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -10,16 +12,25 @@
   --bg-primary: #f8fafc;
   --card-bg: #ffffff;
   --border-color: #e2e8f0;
+
+  /* Custom Natural Reference Palette */
+  --color-eucalyptus: #CDD4B1;
+  --color-pistachio: #EBECCC;
+  --color-peach: #FEECB8;
+  --color-ivory: #FFF9E2;
+  --color-clay: #DCA278;
 }
 
 @layer base {
   * {
     box-sizing: border-box;
   }
+  body, h1, h2, h3, h4, h5, h6, button, input, select, textarea {
+    font-family: 'Tenor Sans', sans-serif;
+  }
   body {
-    @apply bg-slate-50 text-slate-900 antialiased selection:bg-brand-100 selection:text-brand-900;
+    @apply bg-slate-950 text-slate-100 antialiased selection:bg-clay selection:text-slate-950;
     min-height: 100dvh;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }
 

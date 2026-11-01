@@ -26,10 +26,18 @@ module.exports = {
           review: "#d97706",
           fail: "#e11d48",
           neutral: "#475569",
-        }
+        },
+        // Custom Natural Reference Palette
+        eucalyptus: "#CDD4B1",
+        pistachio: "#EBECCC",
+        peach: "#FEECB8",
+        ivory: "#FFF9E2",
+        clay: "#DCA278",
       },
       fontFamily: {
+        tenor: ["'Tenor Sans'", "sans-serif"],
         sans: [
+          "'Tenor Sans'",
           "-apple-system",
           "BlinkMacSystemFont",
           "Segoe UI",
