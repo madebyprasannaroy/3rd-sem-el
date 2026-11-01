@@ -52,6 +52,10 @@ describe("Anti-Counterfeit Fraud Detection Engine", () => {
     // Valid format: BRT123456
     expect(verifyBatchNumber("BRT123456", britanniaTemplate)).toBeNull();
 
+    // Valid real Lay's plant batch with statutory oil symbol ◊
+    const laysCreamOnion = DEFAULT_MASTER_TEMPLATES[2];
+    expect(verifyBatchNumber("2.9/N3 270926◊", laysCreamOnion)).toBeNull();
+
     // Invalid format: FAKE99
     const batchFlag = verifyBatchNumber("FAKE99", britanniaTemplate);
     expect(batchFlag?.code).toBe("BATCH_SYNTAX_ANOMALY");

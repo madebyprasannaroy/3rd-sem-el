@@ -152,6 +152,31 @@ INSERT INTO product_master_templates (
     "total_sugar_g": "3.5",
     "sodium_mg": "887"
   }'::jsonb
+),
+(
+  'Lay''s',
+  'American Style Cream & Onion (58g)',
+  '8901491101813',
+  '10014064000435',
+  '^(N[1-5]|[0-9]\.[0-9]\/N[1-5])[0-9A-Za-z\s◊#\.\-\/]+$',
+  '["Karnataka"]'::jsonb,
+  '["Bengaluru", "Mysuru", "Hubballi", "Mangaluru", "Belagavi"]'::jsonb,
+  '{
+    "product_name": "Lay''s American Style Cream & Onion Potato Chips",
+    "brand": "Lay''s",
+    "net_quantity": "58 g",
+    "mrp": "Rs. 25",
+    "fssai_license": "10014064000435",
+    "unit_fssai_license_n3": "10012031000120",
+    "veg_non_veg": "veg",
+    "ingredients": "Potato (83%), Edible Vegetable Oil, Seasoning [Sugar, Iodised Salt, Milk Solids (1.2%), Spices and Condiments, Maltodextrin, Flavour, Cheese Powder (0.3%), Hydrolysed Vegetable Protein, Flavour Enhancers (627, 631), Edible Vegetable Oil (Palm, Coconut)]",
+    "energy_kcal": "537",
+    "protein_g": "6.7",
+    "total_sugar_g": "3.4",
+    "added_sugar_g": "2.1",
+    "total_fat_g": "33.1",
+    "sodium_mg": "643"
+  }'::jsonb
 )
 ON CONFLICT (official_barcode) DO NOTHING;
 

@@ -105,6 +105,34 @@ export const DEFAULT_MASTER_TEMPLATES: MasterTemplate[] = [
       sodium_mg: "887",
     },
   },
+  {
+    id: "tpl-lays-cream-onion",
+    brand_name: "Lay's",
+    product_name: "American Style Cream & Onion (58g)",
+    official_barcode: "8901491101813",
+    expected_fssai_license: "10014064000435",
+    allowed_batch_regex: "^([0-9\\.\\/]*N[1-5])[0-9A-Za-z\\s◊#\\.\\-\\/]+$",
+    authorized_states: ["Karnataka"],
+    authorized_cities: ["Bengaluru", "Mysuru", "Hubballi", "Mangaluru", "Belagavi"],
+    golden_extracted_fields: {
+      brand: "Lay's",
+      product_name: "Lay's American Style Cream & Onion Potato Chips",
+      net_quantity: "58 g",
+      mrp: "Rs. 25",
+      fssai_license: "10014064000435",
+      unit_fssai_license_n3: "10012031000120",
+      veg_non_veg: "veg",
+      ingredients:
+        "Potato (83%), Edible Vegetable Oil, Seasoning [Sugar, Iodised Salt, Milk Solids (1.2%), Spices and Condiments, Maltodextrin, Flavour (Natural and Nature Identical Flavouring Substances), Cheese Powder (0.3%), Hydrolysed Vegetable Protein, Flavour Enhancers (627, 631), Edible Vegetable Oil (Palm, Coconut)]",
+      energy_kcal: "537",
+      protein_g: "6.7",
+      carbohydrate_g: "53",
+      total_sugar_g: "3.4",
+      added_sugar_g: "2.1",
+      total_fat_g: "33.1",
+      sodium_mg: "643",
+    },
+  },
 ];
 
 /**
