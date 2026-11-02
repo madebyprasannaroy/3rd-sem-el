@@ -285,8 +285,16 @@ export async function extractWithGemini(
 
     const contents = [{ role: "user", parts }];
 
-    // Try Gemini 3.8 Flash, and fallback to Gemini 3.8 Pro if Flash is overloaded
-    const candidateModels = ["gemini-3.8-flash", "gemini-3.8-pro"];
+    // Try Gemini Flash models, with Pro and stable fallback if overloaded or unavailable
+    const userModel = process.env.GEMINI_MODEL?.trim();
+    const candidateModels = [
+      ...(userModel ? [userModel] : []),
+      "gemini-2.5-flash",
+      "gemini-2.0-flash",
+      "gemini-1.5-flash",
+      "gemini-2.5-pro",
+      "gemini-1.5-pro",
+    ];
     let responseText = "";
     let lastApiError: any = null;
 
