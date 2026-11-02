@@ -48,19 +48,30 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       .from("product_master_templates")
       .select("*");
 
-    const templates: MasterTemplate[] = (dbTemplates && dbTemplates.length > 0)
-      ? dbTemplates.map((t) => ({
-          id: t.id,
-          brand_name: t.brand_name,
-          product_name: t.product_name,
-          official_barcode: t.official_barcode,
-          expected_fssai_license: t.expected_fssai_license,
-          allowed_batch_regex: t.allowed_batch_regex,
-          authorized_states: t.authorized_states,
-          authorized_cities: t.authorized_cities,
-          golden_extracted_fields: t.golden_extracted_fields || {},
-        }))
-      : DEFAULT_MASTER_TEMPLATES;
+    const dbMapped: MasterTemplate[] = (dbTemplates || []).map((t) => ({
+      id: t.id,
+      brand_name: t.brand_name,
+      product_name: t.product_name,
+      official_barcode: t.official_barcode,
+      expected_fssai_license: t.expected_fssai_license,
+      allowed_batch_regex: t.allowed_batch_regex,
+      authorized_states: t.authorized_states,
+      authorized_cities: t.authorized_cities,
+      golden_extracted_fields: t.golden_extracted_fields || {},
+    }));
+
+    const templates: MasterTemplate[] = [
+      ...dbMapped,
+      ...DEFAULT_MASTER_TEMPLATES.filter(
+        (def) =>
+          !dbMapped.some(
+            (db) =>
+              (db.official_barcode && db.official_barcode === def.official_barcode) ||
+              ((db.brand_name || "").toLowerCase() === (def.brand_name || "").toLowerCase() &&
+                (db.product_name || "").toLowerCase() === (def.product_name || "").toLowerCase())
+          )
+      ),
+    ];
 
     // 4. Run pure evaluation
     const assessment = evaluateAntiCounterfeit(fields, {}, templates);
@@ -116,19 +127,30 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       .from("product_master_templates")
       .select("*");
 
-    const templates: MasterTemplate[] = (dbTemplates && dbTemplates.length > 0)
-      ? dbTemplates.map((t) => ({
-          id: t.id,
-          brand_name: t.brand_name,
-          product_name: t.product_name,
-          official_barcode: t.official_barcode,
-          expected_fssai_license: t.expected_fssai_license,
-          allowed_batch_regex: t.allowed_batch_regex,
-          authorized_states: t.authorized_states,
-          authorized_cities: t.authorized_cities,
-          golden_extracted_fields: t.golden_extracted_fields || {},
-        }))
-      : DEFAULT_MASTER_TEMPLATES;
+    const dbMapped: MasterTemplate[] = (dbTemplates || []).map((t) => ({
+      id: t.id,
+      brand_name: t.brand_name,
+      product_name: t.product_name,
+      official_barcode: t.official_barcode,
+      expected_fssai_license: t.expected_fssai_license,
+      allowed_batch_regex: t.allowed_batch_regex,
+      authorized_states: t.authorized_states,
+      authorized_cities: t.authorized_cities,
+      golden_extracted_fields: t.golden_extracted_fields || {},
+    }));
+
+    const templates: MasterTemplate[] = [
+      ...dbMapped,
+      ...DEFAULT_MASTER_TEMPLATES.filter(
+        (def) =>
+          !dbMapped.some(
+            (db) =>
+              (db.official_barcode && db.official_barcode === def.official_barcode) ||
+              ((db.brand_name || "").toLowerCase() === (def.brand_name || "").toLowerCase() &&
+                (db.product_name || "").toLowerCase() === (def.product_name || "").toLowerCase())
+          )
+      ),
+    ];
 
     const assessment = evaluateAntiCounterfeit(
       fields,

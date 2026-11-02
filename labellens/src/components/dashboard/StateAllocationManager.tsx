@@ -128,12 +128,18 @@ export default function StateAllocationManager() {
     } catch {}
 
     // Always combine custom SKUs, API templates, and default golden master templates
-    const allCandidates = [...customList, ...baseTemplates, ...DEFAULT_MASTER_TEMPLATES].filter((t) => t.id !== "tpl-britannia-digestive" && t.product_name !== "NutriChoice Digestive");
+    const allCandidates = [...customList, ...baseTemplates, ...DEFAULT_MASTER_TEMPLATES].filter(
+      (t) => t && t.id !== "tpl-britannia-digestive" && t.product_name !== "NutriChoice Digestive"
+    );
     const seen = new Set<string>();
     const merged: MasterTemplate[] = [];
 
     for (const t of allCandidates) {
-      const key = t.official_barcode || `${t.brand_name.toLowerCase()}::${t.product_name.toLowerCase()}`;
+      if (!t) continue;
+      const bBrand = (t.brand_name || "").toLowerCase().trim();
+      const bProd = (t.product_name || "").toLowerCase().trim();
+      const bBarcode = (t.official_barcode || "").trim();
+      const key = bBarcode || (bBrand && bProd ? `${bBrand}::${bProd}` : t.id || Math.random().toString());
       if (!seen.has(key)) {
         seen.add(key);
         merged.push(t);
@@ -202,8 +208,14 @@ export default function StateAllocationManager() {
       .map((c) => c.trim())
       .filter((c) => c.length > 0);
 
+    const isBuiltIn = DEFAULT_MASTER_TEMPLATES.some((d) => d.id === selectedTemplateId);
+    const hasNameDiverged = isBuiltIn && DEFAULT_MASTER_TEMPLATES.some(
+      (d) => d.id === selectedTemplateId && (d.brand_name.toLowerCase() !== brandName.toLowerCase() || d.product_name.toLowerCase() !== productName.toLowerCase())
+    );
+    const targetId = hasNameDiverged ? `sku-${Date.now()}` : selectedTemplateId;
+
     const payload: MasterTemplate = {
-      id: selectedTemplateId,
+      id: targetId,
       brand_name: brandName,
       product_name: productName,
       official_barcode: officialBarcode.trim() || undefined,
@@ -215,13 +227,19 @@ export default function StateAllocationManager() {
     };
 
     // Update local state and persist to localStorage immediately
-    const updated = templates.map((t) =>
-      (t.id === selectedTemplateId || (officialBarcode && t.official_barcode === officialBarcode))
-        ? { ...t, ...payload }
-        : t
-    );
-    if (!updated.some((t) => t.id === selectedTemplateId)) {
-      updated.unshift(payload);
+    let updated: MasterTemplate[];
+    if (hasNameDiverged) {
+      updated = [payload, ...templates];
+      setSelectedTemplateId(targetId);
+    } else {
+      updated = templates.map((t) =>
+        (t.id === selectedTemplateId || (officialBarcode && t.official_barcode === officialBarcode))
+          ? { ...t, ...payload }
+          : t
+      );
+      if (!updated.some((t) => t.id === targetId)) {
+        updated.unshift(payload);
+      }
     }
     setTemplates(updated);
     persistCustomTemplates(updated);

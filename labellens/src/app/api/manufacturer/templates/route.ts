@@ -5,11 +5,6 @@ import { supabaseUser, supabaseAdmin } from "@/lib/supabaseServer";
 import { DEFAULT_MASTER_TEMPLATES, type MasterTemplate } from "@/core/antiCounterfeit";
 
 export async function GET(req: NextRequest) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
     const admin = supabaseAdmin();
     const { data: dbTemplates, error } = await admin

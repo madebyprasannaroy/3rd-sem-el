@@ -120,4 +120,29 @@ describe("Anti-Counterfeit Fraud Detection Engine", () => {
     expect(assessment.flags.some((f) => f.code === "BRAND_TYPOSQUAT_DETECTED")).toBe(true);
     expect(assessment.flags.some((f) => f.code === "FSSAI_LICENSE_MISMATCH")).toBe(true);
   });
+
+  it("robustly matches Lay's Cream & Onion template from OCR fields without explicit brand and verifies formula", () => {
+    // Exact scenario from user's live scan: uppercase product name without Lay's prefix
+    const fields = [
+      { key: "product_name", value: "AMERICAN STYLE CREAM & ONION" },
+      { key: "fssai_license", value: "10014064000435" },
+      { key: "ean_13", value: "8901491101813" },
+      { key: "batch_no", value: "2.9/N3 270926◊" },
+      { key: "net_quantity", value: "58 g" },
+      { key: "veg_non_veg", value: "veg" },
+    ];
+
+    const assessment = evaluateAntiCounterfeit(fields, {
+      geoLocation: { city: "Bengaluru" },
+    });
+
+    expect(assessment.matched_template_id).toBe("tpl-lays-cream-onion");
+    expect(assessment.checks.brandCheck.status).toBe("passed");
+    expect(assessment.checks.fssaiCheck.status).toBe("passed");
+    expect(assessment.checks.barcodeCheck.status).toBe("passed");
+    expect(assessment.checks.batchCheck.status).toBe("passed");
+    expect(assessment.checks.geoCheck.status).toBe("passed");
+    expect(assessment.checks.formulaCheck.status).toBe("passed");
+    expect(assessment.verdict).toBe("AUTHENTIC");
+  });
 });

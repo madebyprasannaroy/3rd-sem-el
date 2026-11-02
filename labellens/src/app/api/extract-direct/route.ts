@@ -40,7 +40,7 @@ export async function POST(req: Request) {
       const admin = supabaseAdmin();
       const { data: dbTemplates } = await admin.from("product_master_templates").select("*");
       if (dbTemplates && dbTemplates.length > 0) {
-        templates = dbTemplates.map((t) => ({
+        const dbMapped: MasterTemplate[] = dbTemplates.map((t) => ({
           id: t.id,
           brand_name: t.brand_name,
           product_name: t.product_name,
@@ -51,6 +51,19 @@ export async function POST(req: Request) {
           authorized_cities: t.authorized_cities,
           golden_extracted_fields: t.golden_extracted_fields || {},
         }));
+
+        templates = [
+          ...dbMapped,
+          ...DEFAULT_MASTER_TEMPLATES.filter(
+            (def) =>
+              !dbMapped.some(
+                (db) =>
+                  (db.official_barcode && db.official_barcode === def.official_barcode) ||
+                  ((db.brand_name || "").toLowerCase() === (def.brand_name || "").toLowerCase() &&
+                    (db.product_name || "").toLowerCase() === (def.product_name || "").toLowerCase())
+              )
+          ),
+        ];
       }
     } catch {}
 

@@ -84,7 +84,8 @@ RULES:
      * "fssai_license": 14-digit FSSAI license number.
      * "date_of_manufacture": Manufacturing/packaging date.
      * "best_before": Best before duration or expiry date.
-     * "batch_number": Batch or lot number.
+     * "batch_number": Batch or lot number as printed (e.g. "2.9/N3 270926◊", "PEP10294", "LOT 4421").
+     * "barcode": Printed GS1 / EAN-13 / UPC barcode numbers beneath barcode lines (e.g. "8901491101813").
      * "manufacturer_address": Manufacturer name, address, or customer care details.
 
 4. Assign confidence >= 0.85 and status "ok" if clearly readable. If partially cut off or questionable, assign status "uncertain" and confidence 0.5-0.74.

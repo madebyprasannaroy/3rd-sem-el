@@ -35,6 +35,10 @@ export default function AntiCounterfeitShield({
   const [expanded, setExpanded] = useState(true);
   const [showSimulateGeo, setShowSimulateGeo] = useState(false);
   const [testCity, setTestCity] = useState("");
+  const [showBarcodeDrawer, setShowBarcodeDrawer] = useState(false);
+  const [testBarcode, setTestBarcode] = useState("");
+  const [showBatchDrawer, setShowBatchDrawer] = useState(false);
+  const [testBatch, setTestBatch] = useState("");
   const [isSimulating, setIsSimulating] = useState(false);
 
   if (!assessment) {
@@ -114,6 +118,26 @@ export default function AntiCounterfeitShield({
     setIsSimulating(true);
     try {
       await onRefresh({ city });
+    } finally {
+      setIsSimulating(false);
+    }
+  };
+
+  const handleVerifyBarcode = async (code: string) => {
+    if (!onRefresh || !code.trim()) return;
+    setIsSimulating(true);
+    try {
+      await onRefresh({ barcode: code.trim() });
+    } finally {
+      setIsSimulating(false);
+    }
+  };
+
+  const handleVerifyBatch = async (batch: string) => {
+    if (!onRefresh || !batch.trim()) return;
+    setIsSimulating(true);
+    try {
+      await onRefresh({ batchNumber: batch.trim() });
     } finally {
       setIsSimulating(false);
     }
@@ -209,6 +233,8 @@ export default function AntiCounterfeitShield({
                 label="EAN-13 / GS1 Barcode"
                 status={checks.barcodeCheck.status}
                 detail={checks.barcodeCheck.details}
+                actionLabel={checks.barcodeCheck.status === "not_checked" ? "Test Barcode" : "Verify Barcode"}
+                onAction={() => setShowBarcodeDrawer(!showBarcodeDrawer)}
               />
 
               {/* 4. Batch Code Regular Expression */}
@@ -217,6 +243,8 @@ export default function AntiCounterfeitShield({
                 label="Inkjet Batch Format"
                 status={checks.batchCheck.status}
                 detail={checks.batchCheck.details}
+                actionLabel={checks.batchCheck.status === "not_checked" ? "Test Batch Code" : "Verify Batch"}
+                onAction={() => setShowBatchDrawer(!showBatchDrawer)}
               />
 
               {/* 5. Geo-Routing & Supply Chain Integrity */}
@@ -296,6 +324,130 @@ export default function AntiCounterfeitShield({
                   className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-rose-300 font-medium"
                 >
                   Patna (Diversion)
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Interactive Barcode Verification Drawer */}
+          {showBarcodeDrawer && onRefresh && (
+            <div className="p-4 rounded-xl bg-slate-900 text-white space-y-3 animate-in fade-in">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Barcode className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs font-bold">Verify Packaging Barcode (EAN-13 / GS1)</span>
+                </div>
+                <span className="text-[11px] text-slate-400">
+                  Validates modulo-10 checksum & brand registration
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Enter 13-digit EAN barcode (e.g. 8901491101813)"
+                  value={testBarcode}
+                  onChange={(e) => setTestBarcode(e.target.value)}
+                  className="text-xs bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:ring-1 focus:ring-brand-500 flex-1 min-w-[200px]"
+                />
+                <button
+                  onClick={() => handleVerifyBarcode(testBarcode)}
+                  disabled={!testBarcode || isSimulating}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 transition-colors"
+                >
+                  {isSimulating ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Barcode className="w-3.5 h-3.5" />
+                  )}
+                  <span>Audit Barcode</span>
+                </button>
+              </div>
+
+              {/* Sample Quick Fill */}
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                <span>Sample authentic barcodes:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTestBarcode("8901491101813");
+                    handleVerifyBarcode("8901491101813");
+                  }}
+                  className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-emerald-300 font-mono text-[10px]"
+                >
+                  8901491101813 (Lay's Cream & Onion)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTestBarcode("8901491101991");
+                    handleVerifyBarcode("8901491101991");
+                  }}
+                  className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-emerald-300 font-mono text-[10px]"
+                >
+                  8901491101991 (Lay's Magic Masala)
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Interactive Batch Code Verification Drawer */}
+          {showBatchDrawer && onRefresh && (
+            <div className="p-4 rounded-xl bg-slate-900 text-white space-y-3 animate-in fade-in">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Hash className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs font-bold">Verify Inkjet Batch / Lot Code</span>
+                </div>
+                <span className="text-[11px] text-slate-400">
+                  Tests manufacturer plant regular expression & ink syntax
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Enter inkjet batch code (e.g. 2.9/N3 270926◊)"
+                  value={testBatch}
+                  onChange={(e) => setTestBatch(e.target.value)}
+                  className="text-xs bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:ring-1 focus:ring-brand-500 flex-1 min-w-[200px]"
+                />
+                <button
+                  onClick={() => handleVerifyBatch(testBatch)}
+                  disabled={!testBatch || isSimulating}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 transition-colors"
+                >
+                  {isSimulating ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Hash className="w-3.5 h-3.5" />
+                  )}
+                  <span>Audit Batch</span>
+                </button>
+              </div>
+
+              {/* Sample Quick Fill */}
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                <span>Sample plant batch codes:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTestBatch("2.9/N3 270926◊");
+                    handleVerifyBatch("2.9/N3 270926◊");
+                  }}
+                  className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-emerald-300 font-mono text-[10px]"
+                >
+                  2.9/N3 270926◊ (Valid Lay's)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTestBatch("FAKE99_INVALID");
+                    handleVerifyBatch("FAKE99_INVALID");
+                  }}
+                  className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-rose-300 font-mono text-[10px]"
+                >
+                  FAKE99 (Syntax Anomaly)
                 </button>
               </div>
             </div>
