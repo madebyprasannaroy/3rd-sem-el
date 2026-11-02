@@ -96,30 +96,52 @@ export async function POST(req: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    let result;
-    if (id && !id.startsWith("tpl-")) {
-      // Update existing record
-      result = await admin
+    let result: any = null;
+
+    // 1. If a valid UUID id was passed, check and update that record
+    const isUuid = typeof id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    if (isUuid) {
+      const { data: existingById } = await admin
         .from("product_master_templates")
-        .update(templatePayload)
+        .select("id")
         .eq("id", id)
-        .select()
-        .single();
-    } else {
-      // Upsert by official_barcode if present, or insert new
-      if (templatePayload.official_barcode) {
+        .maybeSingle();
+
+      if (existingById) {
         result = await admin
           .from("product_master_templates")
-          .upsert(templatePayload, { onConflict: "official_barcode" })
-          .select()
-          .single();
-      } else {
-        result = await admin
-          .from("product_master_templates")
-          .insert(templatePayload)
+          .update(templatePayload)
+          .eq("id", id)
           .select()
           .single();
       }
+    }
+
+    // 2. If not updated by ID, check if record exists with this official_barcode
+    if (!result && templatePayload.official_barcode) {
+      const { data: existingByBarcode } = await admin
+        .from("product_master_templates")
+        .select("id")
+        .eq("official_barcode", templatePayload.official_barcode)
+        .maybeSingle();
+
+      if (existingByBarcode?.id) {
+        result = await admin
+          .from("product_master_templates")
+          .update(templatePayload)
+          .eq("id", existingByBarcode.id)
+          .select()
+          .single();
+      }
+    }
+
+    // 3. Otherwise, insert new record
+    if (!result) {
+      result = await admin
+        .from("product_master_templates")
+        .insert(templatePayload)
+        .select()
+        .single();
     }
 
     if (result.error) {
