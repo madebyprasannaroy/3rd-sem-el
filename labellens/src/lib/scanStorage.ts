@@ -157,3 +157,4 @@ export async function safeSaveScan(
     console.warn("Could not update labellens_scan_list in localStorage:", listErr);
   }
 }
+

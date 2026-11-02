@@ -18,6 +18,9 @@ import {
   Layers,
   ChevronRight,
   ShieldAlert,
+  Database,
+  Copy,
+  Check,
 } from "lucide-react";
 import { DEFAULT_MASTER_TEMPLATES, verifyGeoRouting, type MasterTemplate } from "@/core/antiCounterfeit";
 
@@ -89,6 +92,17 @@ export default function StateAllocationManager() {
   // Live Simulation State
   const [simTestCity, setSimTestCity] = useState("Bengaluru");
   const [simTestState, setSimTestState] = useState("Karnataka");
+  const [showSqlHelp, setShowSqlHelp] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
+
+  function persistCustomTemplates(list: MasterTemplate[]) {
+    try {
+      if (typeof window !== "undefined") {
+        const customOnly = list.filter((t) => !DEFAULT_MASTER_TEMPLATES.some((d) => d.id === t.id));
+        localStorage.setItem("labellens_custom_templates", JSON.stringify(customOnly));
+      }
+    } catch {}
+  }
 
   // Load templates from API or fallback
   useEffect(() => {
@@ -97,20 +111,31 @@ export default function StateAllocationManager() {
 
   async function fetchTemplates() {
     setIsLoading(true);
+    let baseTemplates = DEFAULT_MASTER_TEMPLATES;
     try {
       const res = await fetch("/api/manufacturer/templates");
       const data = await res.json();
       if (data?.templates && data.templates.length > 0) {
-        setTemplates(data.templates);
-        selectTemplate(data.templates[0]);
-      } else {
-        selectTemplate(DEFAULT_MASTER_TEMPLATES[0]);
+        baseTemplates = data.templates;
       }
-    } catch {
-      selectTemplate(DEFAULT_MASTER_TEMPLATES[0]);
-    } finally {
-      setIsLoading(false);
+    } catch {}
+
+    // Merge with any custom templates saved in localStorage
+    let customList: MasterTemplate[] = [];
+    try {
+      const raw = localStorage.getItem("labellens_custom_templates");
+      if (raw) customList = JSON.parse(raw);
+    } catch {}
+
+    const merged = [
+      ...customList,
+      ...baseTemplates.filter((b) => !customList.some((c) => c.id === b.id || (c.official_barcode && c.official_barcode === b.official_barcode)))
+    ];
+    setTemplates(merged);
+    if (merged.length > 0) {
+      selectTemplate(merged[0]);
     }
+    setIsLoading(false);
   }
 
   function selectTemplate(tpl: MasterTemplate) {
@@ -181,6 +206,18 @@ export default function StateAllocationManager() {
       golden_extracted_fields: {},
     };
 
+    // Update local state and persist to localStorage immediately
+    const updated = templates.map((t) =>
+      (t.id === selectedTemplateId || (officialBarcode && t.official_barcode === officialBarcode))
+        ? { ...t, ...payload }
+        : t
+    );
+    if (!updated.some((t) => t.id === selectedTemplateId)) {
+      updated.unshift(payload);
+    }
+    setTemplates(updated);
+    persistCustomTemplates(updated);
+
     try {
       const res = await fetch("/api/manufacturer/templates", {
         method: "POST",
@@ -193,20 +230,16 @@ export default function StateAllocationManager() {
         throw new Error(data?.error || "Save failed");
       }
 
-      setSaveStatus("✓ Successfully saved SKU state allocation and master specifications!");
-      // Update in local array
-      setTemplates((cur) =>
-        cur.map((t) =>
-          (t.id === selectedTemplateId || (officialBarcode && t.official_barcode === officialBarcode))
-            ? { ...t, ...payload }
-            : t
-        )
-      );
+      setSaveStatus("✓ Successfully saved SKU to Supabase Cloud DB and local browser storage!");
     } catch (err: any) {
-      setSaveStatus(`Saved locally in session: ${err.message || "Synced"}`);
+      if (err.message && err.message.includes("product_master_templates")) {
+        setSaveStatus("✓ Saved locally in browser (Supabase table 'product_master_templates' pending migration in SQL Editor)");
+      } else {
+        setSaveStatus(`✓ Saved locally in browser storage (${err.message || "Offline"})`);
+      }
     } finally {
       setIsSaving(false);
-      setTimeout(() => setSaveStatus(null), 4000);
+      setTimeout(() => setSaveStatus(null), 6000);
     }
   }
 
@@ -257,6 +290,82 @@ export default function StateAllocationManager() {
           <span>Add Regional SKU</span>
         </button>
       </div>
+
+      {/* Cloud Migration Helper Callout */}
+      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs text-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+        <div className="flex items-start gap-2.5">
+          <Database className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+          <div>
+            <span className="font-bold text-slate-900">Cloud Sync Status:</span>{" "}
+            <span>SKUs are persistently saved in your browser storage. To enable cloud syncing across devices, run the 1-minute table creation in your Supabase SQL Editor.</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard.writeText(`-- LabelLens Master Templates Schema Migration
+CREATE TABLE IF NOT EXISTS product_master_templates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  manufacturer_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  brand_name TEXT NOT NULL,
+  product_name TEXT NOT NULL,
+  official_barcode TEXT,
+  expected_fssai_license TEXT,
+  allowed_batch_regex TEXT,
+  authorized_states JSONB DEFAULT '[]'::jsonb,
+  authorized_cities JSONB DEFAULT '[]'::jsonb,
+  golden_extracted_fields JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS product_master_barcode_idx ON product_master_templates (official_barcode) WHERE official_barcode IS NOT NULL;
+ALTER TABLE product_master_templates ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "master_templates_all" ON product_master_templates FOR ALL USING (true);`);
+              setCopiedSql(true);
+              setTimeout(() => setCopiedSql(false), 3000);
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 font-semibold text-xs transition-colors shadow-sm"
+          >
+            {copiedSql ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-600" />}
+            <span>{copiedSql ? "Copied SQL!" : "Copy SQL Migration"}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowSqlHelp(!showSqlHelp)}
+            className="text-xs font-semibold text-blue-600 hover:text-blue-800 underline"
+          >
+            {showSqlHelp ? "Hide SQL" : "View SQL"}
+          </button>
+        </div>
+      </div>
+
+      {showSqlHelp && (
+        <div className="bg-slate-950 text-slate-100 p-4 rounded-xl border border-slate-800 font-mono text-[11px] overflow-x-auto space-y-2">
+          <div className="flex items-center justify-between text-slate-400 pb-2 border-b border-slate-800">
+            <span>Supabase Dashboard &gt; SQL Editor &gt; New Query &gt; Run</span>
+            <span className="text-emerald-400 text-[10px]">Ready to execute</span>
+          </div>
+          <pre className="text-emerald-300 leading-relaxed whitespace-pre-wrap">{`-- LabelLens Master Templates Schema Migration
+CREATE TABLE IF NOT EXISTS product_master_templates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  manufacturer_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  brand_name TEXT NOT NULL,
+  product_name TEXT NOT NULL,
+  official_barcode TEXT,
+  expected_fssai_license TEXT,
+  allowed_batch_regex TEXT,
+  authorized_states JSONB DEFAULT '[]'::jsonb,
+  authorized_cities JSONB DEFAULT '[]'::jsonb,
+  golden_extracted_fields JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS product_master_barcode_idx ON product_master_templates (official_barcode) WHERE official_barcode IS NOT NULL;
+ALTER TABLE product_master_templates ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "master_templates_all" ON product_master_templates FOR ALL USING (true);`}</pre>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column: SKU Selector & Template List */}
