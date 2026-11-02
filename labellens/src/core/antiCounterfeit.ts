@@ -233,28 +233,24 @@ export function verifyFssaiLicense(
 }
 
 /**
- * Validates batch / lot coding syntax against manufacturer regex.
+ * Validates presence of statutory batch / lot coding on packaging.
+ * Batch numbers vary across production runs/items; this verifies that an identifiable batch/lot is present.
+ * If batch number is not found, it returns an invalid anomaly flag.
  */
 export function verifyBatchNumber(
   scannedBatch: string | null | undefined,
-  template?: MasterTemplate
+  _template?: MasterTemplate
 ): AnomalyFlag | null {
-  if (!scannedBatch || scannedBatch.trim() === "" || !template?.allowed_batch_regex) {
-    return null;
+  if (!scannedBatch || scannedBatch.trim() === "") {
+    return {
+      code: "MISSING_BATCH_NUMBER",
+      severity: "HIGH",
+      description:
+        "Mandatory statutory batch / lot number is missing from the packaging. Under FSSAI & Legal Metrology rules, all commercial packaged food products must declare an identifiable batch or lot number.",
+      expected: "Legible batch or lot number (e.g. B.No. / Lot / Inkjet code)",
+      detected: "Not found",
+    };
   }
-
-  try {
-    const regex = new RegExp(template.allowed_batch_regex);
-    if (!regex.test(scannedBatch.trim())) {
-      return {
-        code: "BATCH_SYNTAX_ANOMALY",
-        severity: "HIGH",
-        description: `Batch code '${scannedBatch}' fails official manufacturer lot format pattern '${template.allowed_batch_regex}'.`,
-        expected: `Format matching pattern ${template.allowed_batch_regex}`,
-        detected: scannedBatch,
-      };
-    }
-  } catch {}
 
   return null;
 }
@@ -572,22 +568,15 @@ export function evaluateAntiCounterfeit(
     }
   }
 
-  // D. Batch Number Check
-  if (detectedBatch) {
-    if (matchedTemplate) {
-      const batchFlag = verifyBatchNumber(detectedBatch, matchedTemplate);
-      if (batchFlag) {
-        flags.push(batchFlag);
-        batchStatus = "failed";
-        batchDetails = batchFlag.description;
-      } else {
-        batchStatus = "passed";
-        batchDetails = `Batch code '${detectedBatch}' adheres to manufacturer pattern.`;
-      }
-    } else {
-      batchStatus = "passed";
-      batchDetails = `Batch code '${detectedBatch}' recorded from pack.`;
-    }
+  // D. Batch Number Statutory Check: verify product has an identifiable batch number
+  const batchFlag = verifyBatchNumber(detectedBatch);
+  if (batchFlag) {
+    flags.push(batchFlag);
+    batchStatus = "failed";
+    batchDetails = "Invalid: Mandatory statutory batch / lot number was not found on the packaging.";
+  } else {
+    batchStatus = "passed";
+    batchDetails = `Valid: Identifiable statutory batch number declared ('${detectedBatch.trim()}').`;
   }
 
   // E. Geo-Routing & Anti-Diversion Check

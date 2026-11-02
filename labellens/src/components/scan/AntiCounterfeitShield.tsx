@@ -237,13 +237,13 @@ export default function AntiCounterfeitShield({
                 onAction={() => setShowBarcodeDrawer(!showBarcodeDrawer)}
               />
 
-              {/* 4. Batch Code Regular Expression */}
+              {/* 4. Statutory Batch / Lot Code Verification */}
               <CheckCard
                 icon={Hash}
-                label="Inkjet Batch Format"
+                label="Statutory Batch / Lot No"
                 status={checks.batchCheck.status}
                 detail={checks.batchCheck.details}
-                actionLabel={checks.batchCheck.status === "not_checked" ? "Test Batch Code" : "Verify Batch"}
+                actionLabel={checks.batchCheck.status === "failed" ? "Provide Batch No" : "Verify Batch No"}
                 onAction={() => setShowBatchDrawer(!showBatchDrawer)}
               />
 
@@ -397,17 +397,17 @@ export default function AntiCounterfeitShield({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Hash className="w-4 h-4 text-emerald-400" />
-                  <span className="text-xs font-bold">Verify Inkjet Batch / Lot Code</span>
+                  <span className="text-xs font-bold">Verify Statutory Batch / Lot Code</span>
                 </div>
                 <span className="text-[11px] text-slate-400">
-                  Tests manufacturer plant regular expression & ink syntax
+                  Verifies presence of mandatory statutory batch number on packaging
                 </span>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
                 <input
                   type="text"
-                  placeholder="Enter inkjet batch code (e.g. 2.9/N3 270926◊)"
+                  placeholder="Enter packaging batch code (e.g. 2.9/N3 270926◊, B.No 4421)"
                   value={testBatch}
                   onChange={(e) => setTestBatch(e.target.value)}
                   className="text-xs bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:ring-1 focus:ring-brand-500 flex-1 min-w-[200px]"
@@ -422,13 +422,13 @@ export default function AntiCounterfeitShield({
                   ) : (
                     <Hash className="w-3.5 h-3.5" />
                   )}
-                  <span>Audit Batch</span>
+                  <span>Verify Batch Code</span>
                 </button>
               </div>
 
               {/* Sample Quick Fill */}
               <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
-                <span>Sample plant batch codes:</span>
+                <span>Quick batch samples:</span>
                 <button
                   type="button"
                   onClick={() => {
@@ -437,17 +437,17 @@ export default function AntiCounterfeitShield({
                   }}
                   className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-emerald-300 font-mono text-[10px]"
                 >
-                  2.9/N3 270926◊ (Valid Lay's)
+                  2.9/N3 270926◊ (Pack Batch)
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    setTestBatch("FAKE99_INVALID");
-                    handleVerifyBatch("FAKE99_INVALID");
+                    setTestBatch("B.NO. 5041B");
+                    handleVerifyBatch("B.NO. 5041B");
                   }}
-                  className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-rose-300 font-mono text-[10px]"
+                  className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-emerald-300 font-mono text-[10px]"
                 >
-                  FAKE99 (Syntax Anomaly)
+                  B.NO. 5041B
                 </button>
               </div>
             </div>

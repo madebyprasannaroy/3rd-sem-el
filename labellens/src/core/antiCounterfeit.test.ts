@@ -50,14 +50,20 @@ describe("Anti-Counterfeit Fraud Detection Engine", () => {
     expect(typosquat?.severity).toBe("CRITICAL");
   });
 
-  it("verifies batch coding format against manufacturer regex", () => {
-    // Valid real Lay's plant batch with statutory oil symbol ◊
-    expect(verifyBatchNumber("2.9/N3 270926◊", laysTemplate)).toBeNull();
+  it("verifies presence of statutory batch number and flags missing batch as invalid", () => {
+    // Valid: any declared batch / lot number (since batch numbers vary per item/run)
+    expect(verifyBatchNumber("2.9/N3 270926◊")).toBeNull();
+    expect(verifyBatchNumber("BATCH-10948")).toBeNull();
+    expect(verifyBatchNumber("LOT4421")).toBeNull();
 
-    // Invalid format: FAKE99
-    const batchFlag = verifyBatchNumber("FAKE99", laysTemplate);
-    expect(batchFlag?.code).toBe("BATCH_SYNTAX_ANOMALY");
-    expect(batchFlag?.severity).toBe("HIGH");
+    // Invalid: missing, empty, or whitespace batch number
+    const emptyFlag = verifyBatchNumber("");
+    expect(emptyFlag).not.toBeNull();
+    expect(emptyFlag?.code).toBe("MISSING_BATCH_NUMBER");
+    expect(emptyFlag?.severity).toBe("HIGH");
+
+    const nullFlag = verifyBatchNumber(null);
+    expect(nullFlag?.code).toBe("MISSING_BATCH_NUMBER");
   });
 
   it("verifies authorized geo-routing cities and flags diversions", () => {
@@ -144,5 +150,19 @@ describe("Anti-Counterfeit Fraud Detection Engine", () => {
     expect(assessment.checks.geoCheck.status).toBe("passed");
     expect(assessment.checks.formulaCheck.status).toBe("passed");
     expect(assessment.verdict).toBe("AUTHENTIC");
+  });
+
+  it("marks batch check as failed / invalid when batch number is not found", () => {
+    const fields = [
+      { key: "product_name", value: "AMERICAN STYLE CREAM & ONION" },
+      { key: "fssai_license", value: "10014064000435" },
+      { key: "ean_13", value: "8901491101813" },
+      // batch_number is not provided
+    ];
+
+    const assessment = evaluateAntiCounterfeit(fields, {});
+    expect(assessment.checks.batchCheck.status).toBe("failed");
+    expect(assessment.checks.batchCheck.details).toContain("Invalid: Mandatory statutory batch");
+    expect(assessment.flags.some((f) => f.code === "MISSING_BATCH_NUMBER")).toBe(true);
   });
 });
