@@ -285,14 +285,14 @@ export async function extractWithGemini(
 
     const contents = [{ role: "user", parts }];
 
-    // Optimized for Google AI Studio Free Tier API keys (gemini-1.5-flash has 1,500 free requests/day with high RPM)
+    // Tested and verified for Google Gemini API Free Tier (gemini-3.5-flash-lite and gemini-3.1-flash-lite support multimodal JSON extraction)
     const userModel = process.env.GEMINI_MODEL?.trim();
     const candidateModels = [
       ...(userModel ? [userModel] : []),
-      "gemini-1.5-flash",
-      "gemini-2.0-flash",
-      "gemini-1.5-flash-8b",
-      "gemini-1.5-pro",
+      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite",
+      "gemini-3.8-flash",
+      "gemini-flash-latest",
     ];
     let responseText = "";
     let lastApiError: any = null;
