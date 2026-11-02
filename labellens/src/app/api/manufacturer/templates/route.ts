@@ -17,16 +17,7 @@ export async function GET(req: NextRequest) {
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (error || !dbTemplates || dbTemplates.length === 0) {
-      // Return built-in default templates for demo/offline resilience
-      return NextResponse.json({
-        ok: true,
-        templates: DEFAULT_MASTER_TEMPLATES,
-        source: "seed_defaults",
-      });
-    }
-
-    const templates: MasterTemplate[] = dbTemplates.map((t) => ({
+    const dbMapped: MasterTemplate[] = (dbTemplates || []).map((t) => ({
       id: t.id,
       manufacturer_id: t.manufacturer_id,
       brand_name: t.brand_name,
@@ -39,10 +30,24 @@ export async function GET(req: NextRequest) {
       golden_extracted_fields: t.golden_extracted_fields || {},
     }));
 
+    // Always merge DB templates with built-in golden master templates (DB takes precedence)
+    const templates: MasterTemplate[] = [
+      ...dbMapped,
+      ...DEFAULT_MASTER_TEMPLATES.filter(
+        (def) =>
+          !dbMapped.some(
+            (db) =>
+              (db.official_barcode && db.official_barcode === def.official_barcode) ||
+              (db.brand_name.toLowerCase() === def.brand_name.toLowerCase() &&
+                db.product_name.toLowerCase() === def.product_name.toLowerCase())
+          )
+      ),
+    ];
+
     return NextResponse.json({
       ok: true,
       templates,
-      source: "supabase",
+      source: "supabase_merged",
     });
   } catch (err: any) {
     return NextResponse.json({

@@ -127,10 +127,18 @@ export default function StateAllocationManager() {
       if (raw) customList = JSON.parse(raw);
     } catch {}
 
-    const merged = [
-      ...customList,
-      ...baseTemplates.filter((b) => !customList.some((c) => c.id === b.id || (c.official_barcode && c.official_barcode === b.official_barcode)))
-    ];
+    // Always combine custom SKUs, API templates, and default golden master templates
+    const allCandidates = [...customList, ...baseTemplates, ...DEFAULT_MASTER_TEMPLATES];
+    const seen = new Set<string>();
+    const merged: MasterTemplate[] = [];
+
+    for (const t of allCandidates) {
+      const key = t.official_barcode || `${t.brand_name.toLowerCase()}::${t.product_name.toLowerCase()}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        merged.push(t);
+      }
+    }
     setTemplates(merged);
     if (merged.length > 0) {
       selectTemplate(merged[0]);
