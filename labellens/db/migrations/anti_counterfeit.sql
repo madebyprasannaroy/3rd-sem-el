@@ -112,27 +112,6 @@ INSERT INTO product_master_templates (
   golden_extracted_fields
 ) VALUES 
 (
-  'Britannia',
-  'NutriChoice Digestive',
-  '8901063142213',
-  '10015043001129',
-  '^(BRT|NT)[0-9]{6}[A-Z]?$',
-  '["Maharashtra", "Delhi", "Karnataka", "Tamil Nadu", "West Bengal", "Telangana"]'::jsonb,
-  '["Mumbai", "Delhi", "Bengaluru", "Chennai", "Kolkata", "Hyderabad", "Pune"]'::jsonb,
-  '{
-    "product_name": "NutriChoice Digestive High Fibre",
-    "brand": "Britannia",
-    "net_quantity": "100 g",
-    "fssai_license": "10015043001129",
-    "veg_non_veg": "veg",
-    "ingredients": "Refined Wheat Flour (Maida 55%), Edible Vegetable Oil (Refined Palm Oil), Sugar, Wheat Bran (4.5%), Invert Sugar Syrup, Raising Agents [INS 503(ii), INS 500(ii)], Iodised Salt",
-    "energy_kcal": "482",
-    "protein_g": "8.2",
-    "total_sugar_g": "22.0",
-    "sodium_mg": "280"
-  }'::jsonb
-),
-(
   'Lay''s',
   'India''s Magic Masala',
   '8901491101991',

@@ -30,9 +30,9 @@ export async function GET(req: NextRequest) {
       golden_extracted_fields: t.golden_extracted_fields || {},
     }));
 
-    // Always merge DB templates with built-in golden master templates (DB takes precedence)
+    // Always merge DB templates with built-in golden master templates (DB takes precedence), excluding retired NutriChoice
     const templates: MasterTemplate[] = [
-      ...dbMapped,
+      ...dbMapped.filter((t) => t.product_name !== "NutriChoice Digestive" && t.id !== "tpl-britannia-digestive"),
       ...DEFAULT_MASTER_TEMPLATES.filter(
         (def) =>
           !dbMapped.some(

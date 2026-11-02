@@ -10,14 +10,16 @@ import {
 } from "./antiCounterfeit";
 
 describe("Anti-Counterfeit Fraud Detection Engine", () => {
-  const britanniaTemplate = DEFAULT_MASTER_TEMPLATES[0];
+  const laysTemplate =
+    DEFAULT_MASTER_TEMPLATES.find((t) => t.id === "tpl-lays-cream-onion") ||
+    DEFAULT_MASTER_TEMPLATES[0];
 
   it("validates authentic barcode and catches check digit mismatch", () => {
     // Valid barcode
-    expect(verifyBarcode("8901063142213", britanniaTemplate)).toBeNull();
+    expect(verifyBarcode("8901491101813", laysTemplate)).toBeNull();
 
     // Check digit corruption (ends in 4 instead of 3)
-    const flag = verifyBarcode("8901063142214", britanniaTemplate);
+    const flag = verifyBarcode("8901491101814", laysTemplate);
     expect(flag).not.toBeNull();
     expect(flag?.code).toBe("INVALID_BARCODE_CHECKSUM");
     expect(flag?.severity).toBe("CRITICAL");
@@ -25,59 +27,55 @@ describe("Anti-Counterfeit Fraud Detection Engine", () => {
 
   it("catches FSSAI length anomalies and license mismatches", () => {
     // Valid 14-digit
-    expect(verifyFssaiLicense("10015043001129", britanniaTemplate)).toBeNull();
+    expect(verifyFssaiLicense("10014064000435", laysTemplate)).toBeNull();
 
     // Invalid length (10 digits)
-    const lengthFlag = verifyFssaiLicense("1001504300", britanniaTemplate);
+    const lengthFlag = verifyFssaiLicense("1001406400", laysTemplate);
     expect(lengthFlag?.code).toBe("FSSAI_LENGTH_INVALID");
 
     // License mismatch (unlicensed clone)
-    const mismatchFlag = verifyFssaiLicense("19999999999999", britanniaTemplate);
+    const mismatchFlag = verifyFssaiLicense("19999999999999", laysTemplate);
     expect(mismatchFlag?.code).toBe("FSSAI_LICENSE_MISMATCH");
     expect(mismatchFlag?.severity).toBe("CRITICAL");
   });
 
   it("detects brand typosquats and knock-offs via string similarity", () => {
     // Exact match
-    expect(verifyBrandName("Britannia", britanniaTemplate)).toBeNull();
+    expect(verifyBrandName("Lay's", laysTemplate)).toBeNull();
 
-    // Knock-off typosquat: 'Britania'
-    const typosquat = verifyBrandName("Britania", britanniaTemplate);
+    // Knock-off typosquat: 'Ley's'
+    const typosquat = verifyBrandName("Ley's", laysTemplate);
     expect(typosquat).not.toBeNull();
     expect(typosquat?.code).toBe("BRAND_TYPOSQUAT_DETECTED");
     expect(typosquat?.severity).toBe("CRITICAL");
   });
 
   it("verifies batch coding format against manufacturer regex", () => {
-    // Valid format: BRT123456
-    expect(verifyBatchNumber("BRT123456", britanniaTemplate)).toBeNull();
-
     // Valid real Lay's plant batch with statutory oil symbol ◊
-    const laysCreamOnion = DEFAULT_MASTER_TEMPLATES[2];
-    expect(verifyBatchNumber("2.9/N3 270926◊", laysCreamOnion)).toBeNull();
+    expect(verifyBatchNumber("2.9/N3 270926◊", laysTemplate)).toBeNull();
 
     // Invalid format: FAKE99
-    const batchFlag = verifyBatchNumber("FAKE99", britanniaTemplate);
+    const batchFlag = verifyBatchNumber("FAKE99", laysTemplate);
     expect(batchFlag?.code).toBe("BATCH_SYNTAX_ANOMALY");
     expect(batchFlag?.severity).toBe("HIGH");
   });
 
   it("verifies authorized geo-routing cities and flags diversions", () => {
     // Authorized city
-    expect(verifyGeoRouting("Mumbai", britanniaTemplate)).toBeNull();
+    expect(verifyGeoRouting("Bengaluru", laysTemplate)).toBeNull();
 
     // Unauthorized city
-    const geoFlag = verifyGeoRouting("Guwahati", britanniaTemplate);
+    const geoFlag = verifyGeoRouting("Guwahati", laysTemplate);
     expect(geoFlag?.code).toBe("GEO_ROUTING_DIVERSION");
     expect(geoFlag?.severity).toBe("HIGH");
   });
 
   it("verifies authorized states and flags interstate diversion", () => {
     // Authorized state: Karnataka
-    expect(verifyGeoRouting({ state: "Karnataka" }, britanniaTemplate)).toBeNull();
+    expect(verifyGeoRouting({ state: "Karnataka" }, laysTemplate)).toBeNull();
 
     // Unauthorized state: Bihar
-    const stateFlag = verifyGeoRouting({ state: "Bihar" }, britanniaTemplate);
+    const stateFlag = verifyGeoRouting({ state: "Bihar" }, laysTemplate);
     expect(stateFlag?.code).toBe("GEO_ROUTING_DIVERSION");
     expect(stateFlag?.severity).toBe("HIGH");
     expect(stateFlag?.description).toContain("outside the authorized state distribution network");
@@ -85,17 +83,17 @@ describe("Anti-Counterfeit Fraud Detection Engine", () => {
 
   it("evaluates complete authentic product scan with high authenticity score", () => {
     const fields = [
-      { key: "brand", value: "Britannia" },
-      { key: "product_name", value: "NutriChoice Digestive" },
-      { key: "fssai_license", value: "10015043001129" },
-      { key: "net_quantity", value: "100 g" },
+      { key: "brand", value: "Lay's" },
+      { key: "product_name", value: "American Style Cream & Onion (58g)" },
+      { key: "fssai_license", value: "10014064000435" },
+      { key: "net_quantity", value: "58 g" },
       { key: "veg_non_veg", value: "veg" },
     ];
 
     const assessment = evaluateAntiCounterfeit(fields, {
-      barcode: "8901063142213",
-      batchNumber: "BRT123456",
-      geoLocation: { city: "Mumbai" },
+      barcode: "8901491101813",
+      batchNumber: "2.9/N3 270926◊",
+      geoLocation: { city: "Bengaluru" },
     });
 
     expect(assessment.verdict).toBe("AUTHENTIC");
@@ -107,8 +105,8 @@ describe("Anti-Counterfeit Fraud Detection Engine", () => {
 
   it("evaluates counterfeit product with typosquat and wrong FSSAI as CRITICAL_COUNTERFEIT_RISK", () => {
     const fields = [
-      { key: "brand", value: "Britania" }, // typosquat
-      { key: "product_name", value: "NutriChoice Digestive" },
+      { key: "brand", value: "Ley's" }, // typosquat
+      { key: "product_name", value: "American Style Cream & Onion (58g)" },
       { key: "fssai_license", value: "12345678901234" }, // wrong license
     ];
 
@@ -123,4 +121,3 @@ describe("Anti-Counterfeit Fraud Detection Engine", () => {
     expect(assessment.flags.some((f) => f.code === "FSSAI_LICENSE_MISMATCH")).toBe(true);
   });
 });
-

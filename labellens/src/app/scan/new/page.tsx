@@ -308,7 +308,7 @@ export default function NewScan() {
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Lay's India's Magic Masala or NutriChoice Digestive"
+                  placeholder="e.g. Lay's American Style Cream & Onion or Fabsta Digestive Biscuits"
                   maxLength={120}
                   className="w-full text-sm font-bold border-2 border-eucalyptus rounded-xl p-3 bg-white text-slate-950 placeholder:text-slate-400 focus:ring-2 focus:ring-clay focus:border-clay focus:outline-none transition-all shadow-sm"
                 />

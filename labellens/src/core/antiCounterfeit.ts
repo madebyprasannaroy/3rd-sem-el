@@ -60,29 +60,6 @@ export interface ScanContext {
 // BUILT-IN GOLDEN MASTER TEMPLATES (for offline & demo evaluation)
 export const DEFAULT_MASTER_TEMPLATES: MasterTemplate[] = [
   {
-    id: "tpl-britannia-digestive",
-    brand_name: "Britannia",
-    product_name: "NutriChoice Digestive",
-    official_barcode: "8901063142213",
-    expected_fssai_license: "10015043001129",
-    allowed_batch_regex: "^(BRT|NT)[0-9]{6}[A-Z]?$",
-    authorized_states: ["Maharashtra", "Delhi", "Karnataka", "Tamil Nadu", "West Bengal", "Telangana"],
-    authorized_cities: ["Mumbai", "Delhi", "Bengaluru", "Chennai", "Kolkata", "Hyderabad", "Pune"],
-    golden_extracted_fields: {
-      product_name: "NutriChoice Digestive High Fibre",
-      brand: "Britannia",
-      net_quantity: "100 g",
-      fssai_license: "10015043001129",
-      veg_non_veg: "veg",
-      ingredients:
-        "Refined Wheat Flour (Maida 55%), Edible Vegetable Oil (Refined Palm Oil), Sugar, Wheat Bran (4.5%), Invert Sugar Syrup, Raising Agents [INS 503(ii), INS 500(ii)], Iodised Salt",
-      energy_kcal: "482",
-      protein_g: "8.2",
-      total_sugar_g: "22.0",
-      sodium_mg: "280",
-    },
-  },
-  {
     id: "tpl-lays-magic-masala",
     brand_name: "Lay's",
     product_name: "India's Magic Masala",

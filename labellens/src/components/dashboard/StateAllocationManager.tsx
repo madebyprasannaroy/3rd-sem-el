@@ -128,7 +128,7 @@ export default function StateAllocationManager() {
     } catch {}
 
     // Always combine custom SKUs, API templates, and default golden master templates
-    const allCandidates = [...customList, ...baseTemplates, ...DEFAULT_MASTER_TEMPLATES];
+    const allCandidates = [...customList, ...baseTemplates, ...DEFAULT_MASTER_TEMPLATES].filter((t) => t.id !== "tpl-britannia-digestive" && t.product_name !== "NutriChoice Digestive");
     const seen = new Set<string>();
     const merged: MasterTemplate[] = [];
 
@@ -577,7 +577,7 @@ CREATE POLICY "master_templates_all" ON product_master_templates FOR ALL USING (
                   type="text"
                   value={productName}
                   onChange={(e) => setProductName(e.target.value)}
-                  placeholder="e.g. NutriChoice Digestive (Karnataka Pack)"
+                  placeholder="e.g. Lay's India's Magic Masala (Karnataka Pack)"
                   className="w-full text-xs font-bold text-slate-950 bg-white border border-slate-300 rounded-lg p-2.5 focus:ring-1 focus:ring-brand-600 focus:outline-none placeholder:text-slate-400 shadow-2xs"
                 />
               </div>
