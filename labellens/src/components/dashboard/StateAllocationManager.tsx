@@ -557,7 +557,7 @@ CREATE POLICY "master_templates_all" ON product_master_templates FOR ALL USING (
                   value={brandName}
                   onChange={(e) => setBrandName(e.target.value)}
                   placeholder="e.g. Britannia, Lay's, Amul"
-                  className="w-full text-xs font-semibold border border-slate-300 rounded-lg p-2.5 focus:ring-1 focus:ring-brand-600 focus:outline-none"
+                  className="w-full text-xs font-bold text-slate-950 bg-white border border-slate-300 rounded-lg p-2.5 focus:ring-1 focus:ring-brand-600 focus:outline-none placeholder:text-slate-400 shadow-2xs"
                 />
               </div>
 
@@ -570,7 +570,7 @@ CREATE POLICY "master_templates_all" ON product_master_templates FOR ALL USING (
                   value={productName}
                   onChange={(e) => setProductName(e.target.value)}
                   placeholder="e.g. NutriChoice Digestive (Karnataka Pack)"
-                  className="w-full text-xs font-semibold border border-slate-300 rounded-lg p-2.5 focus:ring-1 focus:ring-brand-600 focus:outline-none"
+                  className="w-full text-xs font-bold text-slate-950 bg-white border border-slate-300 rounded-lg p-2.5 focus:ring-1 focus:ring-brand-600 focus:outline-none placeholder:text-slate-400 shadow-2xs"
                 />
               </div>
 
@@ -584,7 +584,7 @@ CREATE POLICY "master_templates_all" ON product_master_templates FOR ALL USING (
                   value={officialBarcode}
                   onChange={(e) => setOfficialBarcode(e.target.value)}
                   placeholder="e.g. 8901063142213"
-                  className="w-full text-xs font-mono font-bold border border-slate-300 rounded-lg p-2.5 focus:ring-1 focus:ring-brand-600 focus:outline-none"
+                  className="w-full text-xs font-mono font-bold text-slate-950 bg-white border border-slate-300 rounded-lg p-2.5 focus:ring-1 focus:ring-brand-600 focus:outline-none placeholder:text-slate-400 shadow-2xs"
                 />
               </div>
 
@@ -599,7 +599,7 @@ CREATE POLICY "master_templates_all" ON product_master_templates FOR ALL USING (
                   onChange={(e) => setExpectedFssai(e.target.value)}
                   placeholder="e.g. 10015043001129"
                   maxLength={14}
-                  className="w-full text-xs font-mono font-bold border border-slate-300 rounded-lg p-2.5 focus:ring-1 focus:ring-brand-600 focus:outline-none"
+                  className="w-full text-xs font-mono font-bold text-slate-950 bg-white border border-slate-300 rounded-lg p-2.5 focus:ring-1 focus:ring-brand-600 focus:outline-none placeholder:text-slate-400 shadow-2xs"
                 />
               </div>
             </div>
@@ -621,7 +621,7 @@ CREATE POLICY "master_templates_all" ON product_master_templates FOR ALL USING (
                 value={batchRegex}
                 onChange={(e) => setBatchRegex(e.target.value)}
                 placeholder="e.g. ^(BRT-KA|NT-KA)[0-9]{6}$"
-                className="w-full text-xs font-mono font-bold border border-slate-300 rounded-lg p-2.5 focus:ring-1 focus:ring-brand-600 focus:outline-none"
+                className="w-full text-xs font-mono font-bold text-slate-950 bg-white border border-slate-300 rounded-lg p-2.5 focus:ring-1 focus:ring-brand-600 focus:outline-none placeholder:text-slate-400 shadow-2xs"
               />
 
               {/* State Code Quick Presets */}
@@ -698,7 +698,7 @@ CREATE POLICY "master_templates_all" ON product_master_templates FOR ALL USING (
                   placeholder="Filter state (e.g. Karnataka, Maharashtra, Delhi)..."
                   value={stateSearch}
                   onChange={(e) => setStateSearch(e.target.value)}
-                  className="w-full text-xs pl-8 pr-3 py-2 border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-600"
+                  className="w-full text-xs font-semibold text-slate-950 pl-8 pr-3 py-2 border border-slate-200 rounded-lg bg-white focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-600 placeholder:text-slate-400"
                 />
               </div>
 
@@ -737,7 +737,7 @@ CREATE POLICY "master_templates_all" ON product_master_templates FOR ALL USING (
                 value={citiesInput}
                 onChange={(e) => setCitiesInput(e.target.value)}
                 placeholder="e.g. Bengaluru, Mysuru, Hubballi, Mangaluru, Belagavi"
-                className="w-full text-xs font-medium border border-slate-300 rounded-lg p-2.5 focus:ring-1 focus:ring-brand-600 focus:outline-none"
+                className="w-full text-xs font-bold text-slate-950 bg-white border border-slate-300 rounded-lg p-2.5 focus:ring-1 focus:ring-brand-600 focus:outline-none placeholder:text-slate-400 shadow-2xs"
               />
               <span className="text-[10px] text-slate-400 mt-1 block">
                 Leave empty if entire state(s) are authorized without specific city filters.

@@ -622,7 +622,7 @@ export default function EnhancedScanView({
                                   if (e.key === "Enter") saveField(f, editValue);
                                   if (e.key === "Escape") setEditingFieldId(null);
                                 }}
-                                className="text-sm font-semibold border border-brand-500 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-600 w-full max-w-sm bg-white"
+                                className="text-sm font-bold text-slate-950 border-2 border-brand-500 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-600 w-full max-w-sm bg-white placeholder:text-slate-400 shadow-sm"
                                 placeholder="Type correct value..."
                               />
                               <button

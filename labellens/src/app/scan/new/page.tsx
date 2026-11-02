@@ -310,7 +310,7 @@ export default function NewScan() {
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="e.g. Lay's India's Magic Masala or NutriChoice Digestive"
                   maxLength={120}
-                  className="w-full text-sm border-2 border-eucalyptus rounded-xl p-3 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-clay focus:border-clay focus:outline-none transition-all shadow-sm"
+                  className="w-full text-sm font-bold border-2 border-eucalyptus rounded-xl p-3 bg-white text-slate-950 placeholder:text-slate-400 focus:ring-2 focus:ring-clay focus:border-clay focus:outline-none transition-all shadow-sm"
                 />
               </div>
 
@@ -321,7 +321,7 @@ export default function NewScan() {
                 <select
                   value={scanType}
                   onChange={(e) => setScanType(e.target.value as any)}
-                  className="w-full text-sm border-2 border-eucalyptus rounded-xl p-3 bg-white text-slate-900 focus:ring-2 focus:ring-clay focus:border-clay focus:outline-none font-semibold transition-all shadow-sm"
+                  className="w-full text-sm font-bold border-2 border-eucalyptus rounded-xl p-3 bg-white text-slate-950 focus:ring-2 focus:ring-clay focus:border-clay focus:outline-none transition-all shadow-sm"
                 >
                   <option value="product">Consumer Pack (Commercial)</option>
                   <option value="draft_label">Pre-Print Draft (Manufacturer)</option>
@@ -372,7 +372,7 @@ export default function NewScan() {
                       value={scanCity}
                       onChange={(e) => setScanCity(e.target.value)}
                       placeholder="e.g. Bengaluru, Mumbai, Delhi"
-                      className="w-full text-xs border border-eucalyptus rounded-lg p-2.5 bg-white text-slate-900 focus:ring-1 focus:ring-clay focus:border-clay focus:outline-none"
+                      className="w-full text-xs font-bold border border-eucalyptus rounded-lg p-2.5 bg-white text-slate-950 focus:ring-1 focus:ring-clay focus:border-clay focus:outline-none placeholder:text-slate-400"
                     />
                     <span className="text-[10px] text-slate-500 mt-1 block">
                       Detects gray-market geo diversion
@@ -388,7 +388,7 @@ export default function NewScan() {
                       value={manualBarcode}
                       onChange={(e) => setManualBarcode(e.target.value)}
                       placeholder="e.g. 8901063142213"
-                      className="w-full text-xs border border-eucalyptus rounded-lg p-2.5 bg-white text-slate-900 focus:ring-1 focus:ring-clay focus:border-clay focus:outline-none font-mono"
+                      className="w-full text-xs font-bold border border-eucalyptus rounded-lg p-2.5 bg-white text-slate-950 focus:ring-1 focus:ring-clay focus:border-clay focus:outline-none font-mono placeholder:text-slate-400"
                     />
                     <span className="text-[10px] text-slate-500 mt-1 block">
                       Optional if visible on photos
@@ -404,7 +404,7 @@ export default function NewScan() {
                       value={manualBatch}
                       onChange={(e) => setManualBatch(e.target.value)}
                       placeholder="e.g. BRT202409A"
-                      className="w-full text-xs border border-eucalyptus rounded-lg p-2.5 bg-white text-slate-900 focus:ring-1 focus:ring-clay focus:border-clay focus:outline-none font-mono"
+                      className="w-full text-xs font-bold border border-eucalyptus rounded-lg p-2.5 bg-white text-slate-950 focus:ring-1 focus:ring-clay focus:border-clay focus:outline-none font-mono placeholder:text-slate-400"
                     />
                     <span className="text-[10px] text-slate-500 mt-1 block">
                       Cross-referenced against brand regex

@@ -28,6 +28,12 @@
   body, h1, h2, h3, h4, h5, h6, button, input, select, textarea {
     font-family: 'Tenor Sans', sans-serif;
   }
+  input, select, textarea {
+    color: #020617; /* Deep high-contrast dark text */
+  }
+  input::placeholder, textarea::placeholder {
+    color: #94a3b8;
+  }
   body {
     @apply bg-slate-950 text-slate-100 antialiased selection:bg-clay selection:text-slate-950;
     min-height: 100dvh;
