@@ -285,14 +285,13 @@ export async function extractWithGemini(
 
     const contents = [{ role: "user", parts }];
 
-    // Try Gemini Flash models, with Pro and stable fallback if overloaded or unavailable
+    // Optimized for Google AI Studio Free Tier API keys (gemini-1.5-flash has 1,500 free requests/day with high RPM)
     const userModel = process.env.GEMINI_MODEL?.trim();
     const candidateModels = [
       ...(userModel ? [userModel] : []),
-      "gemini-2.5-flash",
-      "gemini-2.0-flash",
       "gemini-1.5-flash",
-      "gemini-2.5-pro",
+      "gemini-2.0-flash",
+      "gemini-1.5-flash-8b",
       "gemini-1.5-pro",
     ];
     let responseText = "";
@@ -339,6 +338,11 @@ export async function extractWithGemini(
 
     if (!responseText) {
       const msg = String(lastApiError?.message || "");
+      if (msg.includes("RESOURCE_EXHAUSTED") || msg.includes("quota") || lastApiError?.status === 429) {
+        throw new Error(
+          "Gemini Free Tier rate limit reached (15 requests/min). Please wait 20–30 seconds and click 'Upload & Extract' again."
+        );
+      }
       if (msg.includes("high demand") || msg.includes("503") || lastApiError?.status === 503) {
         throw new Error(
           "Gemini Vision servers are currently experiencing a brief traffic spike. Please wait 15–30 seconds and click 'Upload & Extract' again."
