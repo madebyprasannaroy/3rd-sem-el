@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
+import { getPhotosFromIndexedDB } from "@/lib/scanStorage";
 import {
   Sparkles,
   CheckCircle2,
@@ -93,6 +94,20 @@ export default function EnhancedScanView({
           }));
           setPhotosList(loadedPhotos);
         }
+
+        // Hydrate from IndexedDB if photo URLs are stripped or missing
+        getPhotosFromIndexedDB(scanId).then((idbPhotos: { panel: string; dataUrl: string }[] | null) => {
+          if (idbPhotos && idbPhotos.length > 0) {
+            setPhotosList((prev: Photo[]) => {
+              if (prev.length > 0 && prev.some((p: Photo) => p.url)) return prev;
+              return idbPhotos.map((p: { panel: string; dataUrl: string }, idx: number) => ({
+                id: `idb-p-${idx}`,
+                panel: p.panel,
+                url: p.dataUrl,
+              }));
+            });
+          }
+        });
         if (parsed.extraction?.fields && Array.isArray(parsed.extraction.fields) && parsed.extraction.fields.length > 0) {
           const loadedFields: Field[] = parsed.extraction.fields.map((f: any, idx: number) => ({
             id: `f-${idx + 1}`,

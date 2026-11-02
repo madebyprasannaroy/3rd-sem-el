@@ -18,6 +18,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import Navbar from "@/components/ui/Navbar";
+import { safeSaveScan } from "@/lib/scanStorage";
 
 const PANELS = [
   {
@@ -201,17 +202,8 @@ export default function NewScan() {
         photos: photoData,
       };
 
-      localStorage.setItem(`labellens_scan_${finalScanId}`, JSON.stringify(scanData));
-
-      const scanList = JSON.parse(localStorage.getItem("labellens_scan_list") || "[]");
-      scanList.unshift({
-        id: finalScanId,
-        title: scanData.title,
-        status: "needs_review",
-        createdAt: scanData.createdAt,
-        panelCount: filledEntries.length,
-      });
-      localStorage.setItem("labellens_scan_list", JSON.stringify(scanList));
+      // Safely persist to storage (IndexedDB for heavy photos, localStorage for metadata with auto-quota cleanup)
+      await safeSaveScan(finalScanId, scanData, photoData);
 
       await new Promise((r) => setTimeout(r, 400));
       window.location.href = `/scan/${finalScanId}`;
